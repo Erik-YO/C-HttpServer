@@ -17,7 +17,7 @@ MAIN_SERVER=server
 
 EXE=$(MAIN_SERVER)
 
-OBJECT_FILES=$(LIB)/tcp.a
+OBJECT_FILES=$(LIB)/tcp.a $(LIB)/hilos.a
 
 #OBJECT_FILES=$(OBJ)/$(MAIN_SERVER).o $(OBJ)/tcp.o $(SRC)/fuente.o $(LIB)/libreria.a
 
@@ -51,6 +51,16 @@ $(OBJ)/tcp.o: $(SRCLIB)/tcp.c $(INC)/tcp.h
 
 $(LIB)/tcp.a: $(OBJ)/tcp.o
 	$(LIBCOMP) $(LIB_FLAGS) $(LIB)/tcp.a $(OBJ)/tcp.o
+
+
+
+# Funciones de gestion de hilos
+$(OBJ)/hilos.o: $(SRCLIB)/hilos.c $(INC)/hilos.h
+	$(CC) $(FLAGS) -o $@ -c $(SRCLIB)/hilos.c
+
+$(LIB)/hilos.a: $(OBJ)/hilos.o
+	$(LIBCOMP) $(LIB_FLAGS) $(LIB)/hilos.a $(OBJ)/hilos.o
+
 
 
 
