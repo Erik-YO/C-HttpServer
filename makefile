@@ -57,7 +57,7 @@ $(LIB)/tcp.a: $(OBJ)/tcp.o
 
 # obj de servidor
 $(OBJ)/$(MAIN_SERVER).o: $(SRC)/$(MAIN_SERVER).c
-	$(CC) $(FLAGS) -o $@ -c $(SRC)/$(MAIN_SERVER).c
+	$(CC) $(FLAGS) -o -pthread $@ -c $(SRC)/$(MAIN_SERVER).c
 	@echo "$(MAIN_SERVER).o generated"
 
 # obj de cliente de pruebas
