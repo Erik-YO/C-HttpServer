@@ -11,6 +11,7 @@ CC=gcc
 LIBCOMP=ar
 FLAGS= -ansi -pedantic -Wall -g -I$(INC)
 LIB_FLAGS=-rcs
+THREADF=-pthread -lpthread -lrt
 
 MAIN_CLIENT=client
 MAIN_SERVER=server
@@ -56,7 +57,7 @@ $(LIB)/tcp.a: $(OBJ)/tcp.o
 
 # Funciones de gestion de hilos
 $(OBJ)/hilos.o: $(SRCLIB)/hilos.c $(INC)/hilos.h
-	$(CC) $(FLAGS) -o $@ -c $(SRCLIB)/hilos.c
+	$(CC) $(FLAGS) -o $@ -c $(SRCLIB)/hilos.c $(THREADF)
 
 $(LIB)/hilos.a: $(OBJ)/hilos.o
 	$(LIBCOMP) $(LIB_FLAGS) $(LIB)/hilos.a $(OBJ)/hilos.o
@@ -67,12 +68,12 @@ $(LIB)/hilos.a: $(OBJ)/hilos.o
 
 # obj de servidor
 $(OBJ)/$(MAIN_SERVER).o: $(SRC)/$(MAIN_SERVER).c
-	$(CC) $(FLAGS) -o -pthread $@ -c $(SRC)/$(MAIN_SERVER).c
+	$(CC) $(FLAGS) -o $@ -c $(SRC)/$(MAIN_SERVER).c $(THREADF)
 	@echo "$(MAIN_SERVER).o generated"
 
 # obj de cliente de pruebas
 $(OBJ)/$(MAIN_CLIENT).o: $(SRC)/$(MAIN_CLIENT).c
-	$(CC) $(FLAGS) -o $@ -c $(SRC)/$(MAIN_CLIENT).c
+	$(CC) $(FLAGS) -o $@ -c $(SRC)/$(MAIN_CLIENT).c $(THREADF)
 	@echo "$(MAIN_CLIENT).o generated"
 
 
@@ -81,21 +82,32 @@ $(OBJ)/$(MAIN_CLIENT).o: $(SRC)/$(MAIN_CLIENT).c
 
 # Main de servidor
 $(MAIN_SERVER): $(OBJ)/$(MAIN_SERVER).o $(OBJECT_FILES)
-	$(CC) -o ./$(MAIN_SERVER) $(OBJ)/$(MAIN_SERVER).o $(OBJECT_FILES)
+	$(CC) -o ./$(MAIN_SERVER) $(OBJ)/$(MAIN_SERVER).o $(OBJECT_FILES) $(THREADF)
 	@echo "$(MAIN_SERVER) generated"
 
 # Main de cliente de pruebas
 $(MAIN_CLIENT): $(OBJ)/$(MAIN_CLIENT).o $(OBJECT_FILES)
-	$(CC) -o ./$(MAIN_CLIENT) $(OBJ)/$(MAIN_CLIENT).o $(OBJECT_FILES)
+	$(CC) -o ./$(MAIN_CLIENT) $(OBJ)/$(MAIN_CLIENT).o $(OBJECT_FILES) $(THREADF)
 	@echo "$(MAIN_CLIENT) generated"
 
 
 
 
+# obj main de pruebas
+$(OBJ)/main.o: $(SRC)/main.c
+	$(CC) $(FLAGS) -o $@ -c $(SRC)/main.c $(THREADF)
+	@echo "main.o generated"
+
+
+# Main de pruebas
+main: $(OBJ)/main.o $(OBJECT_FILES)
+	$(CC) -o ./main $(OBJ)/main.o $(OBJECT_FILES) $(THREADF)
+	@echo "main generated"
+
 
 
 clean:
-	rm $(OBJ)/*.o $(LIB)/*.a ./$(MAIN_CLIENT) ./$(MAIN_SERVER)
+	rm $(OBJ)/*.o $(LIB)/*.a ./$(MAIN_CLIENT) ./$(MAIN_SERVER) ./main
 
 
 

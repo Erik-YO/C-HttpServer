@@ -15,7 +15,7 @@ typedef void* (*funcionHilo)(void*);
 /*Funciones de gestion*/
 
 /*Create*/
-GestorHilos* hilo_createGestor(int maxHilos);
+GestorHilos* hilo_getGestor(int maxHilos);
 
 /*Close hilos*/
 int hilo_closeHilos(GestorHilos* gh);
