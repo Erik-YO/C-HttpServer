@@ -13,6 +13,11 @@
 #include "hilos.h"
 #include <time.h>
 
+
+/**/
+int sem_timedwait(sem_t* __restrict__ __sem, const struct timespec* __restrict__ __abstime);
+
+
 int test1(){
 
     struct timespec tm;
@@ -41,7 +46,7 @@ int test1(){
 void* test_func(void *arg){
     int i;
 
-    for(i=0; i<6; i++){
+    for(i=0; i<5; i++){
 
         printf("Hilo %ld - i=%d\n", (long)pthread_self()%100, i);
         sleep(1);
@@ -56,7 +61,7 @@ void* test_func(void *arg){
 int test_gestor(GestorHilos* g){
     int i, err;
 
-    for(i= 0; i<4; i++){
+    for(i= 0; i<5; i++){
         err = hilo_launch(g, test_func, NULL);
         if(err){
             printf("hilo_launch error -> i = %d, \terr = %d\n", i, err);
@@ -74,7 +79,7 @@ int main(){
     GestorHilos* g;
     int res;
 
-    g = hilo_getGestor(3);
+    g = hilo_getGestor(2);
 
     if(!g){
         printf("Error !g\n");

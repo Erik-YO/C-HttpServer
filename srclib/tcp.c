@@ -17,6 +17,10 @@
 
 
 
+/**/
+in_addr_t inet_addr(const char *cp);
+
+
 void buffer_reset(void* buff, int size){
 	int i;
 	char *buffer=buff;

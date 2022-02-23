@@ -111,8 +111,10 @@ clean:
 
 
 
-#
-#	valgrind --leak-check=full ./$(MAIN_CLIENT)
+valgrind: main
+	valgrind --leak-check=full --show-leak-kinds=all ./main
+
+
 #
 #$(OBJ)/$(MAIN_CLIENT).o: $(SRC)/$(MAIN_CLIENT).c
 #	$(CC) $(FLAGS) -I$(INC) -c $(SRC)/$(MAIN_CLIENT).c -o $(OBJ)/$(MAIN_CLIENT).o
