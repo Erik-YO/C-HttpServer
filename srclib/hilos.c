@@ -29,6 +29,8 @@ struct _GestorHilos {
 
     /*int Max threads*/
     int max;
+    /*bool allAvailable*/
+    int allAvailable;
 };
 
 /*Estructura intermedia para el lanzamiento de hilos*/
@@ -47,6 +49,10 @@ int alarmed = 0;
 
 void hilo_freeGestor(GestorHilos* gh);
 void* _postLaunchHilo(void* launcher);
+void _clean_hilo(void* arg);
+
+void _post_available(GestorHilos* g);
+void _wait_available(GestorHilos* g);
 
 /*Funciones de gestion*/
 
@@ -120,6 +126,7 @@ GestorHilos* hilo_getGestor(int maxHilos) {
     }
 
     gh->max = maxHilos;
+    gh->allAvailable = TRUE;
 
     globalGestor = gh;
 
@@ -203,14 +210,22 @@ void hilo_forceDestroyGestor(GestorHilos* gh) {
 
 /*Launch hilo*/
 int hilo_launch(GestorHilos* gh, funcionHilo fh, void* arg) {
-    HiloLauncher launcher;
+    HiloLauncher *launcher=NULL;
     int error, i, notTaken=-1;
 
-    launcher.gestor = gh;
-    launcher.func = fh;
-    launcher.arg = arg;
+    if(!gh || !fh){
+        return 1;
+    }
 
-    sem_wait(&(gh->available));
+    launcher = (HiloLauncher*) calloc(1, sizeof(HiloLauncher));
+    if(!launcher) return 2;
+
+    launcher->gestor = gh;
+    launcher->func = fh;
+    launcher->arg = arg;
+    if(!arg) launcher->arg = NULL;
+
+    _wait_available(gh);
     sem_wait(&(gh->lock));
     for (i = 0; i < gh->max; i++) {
         if (!(gh->taken[i])) {
@@ -218,20 +233,20 @@ int hilo_launch(GestorHilos* gh, funcionHilo fh, void* arg) {
             i = gh->max;
         }
     }
-    if(notTaken<0) return 2; 
-    launcher.hilo = notTaken;
+    if(notTaken < 0) return 3; 
+    launcher->hilo = notTaken;
 
     /*Se marca el hilo como ocupado*/
     gh->taken[notTaken] = 1;
     sem_post(&(gh->lock));
 
     /*Crear hilo*/
-    error = pthread_create(&(gh->hilos[i]), NULL, _postLaunchHilo, (void*)&launcher);
+    error = pthread_create(&(gh->hilos[i]), NULL, _postLaunchHilo, (void*)launcher);
     if (error) {
         sem_wait(&(gh->lock));
         gh->taken[i] = 0;
         sem_post(&(gh->lock));
-        return 1;
+        return 4;
     }
 
     return 0;
@@ -240,7 +255,7 @@ int hilo_launch(GestorHilos* gh, funcionHilo fh, void* arg) {
 /*Launch hilo con timeout (en segundos) si no se consigue espacio para otro hilo en ese
  * tiempo*/
 int hilo_lauchTimeOut(GestorHilos* gh, double timeout, funcionHilo fh, void* arg) {
-    HiloLauncher launcher;
+    HiloLauncher *launcher=NULL;
     int error, i, notTaken=-1, sec;
     struct timespec time;
 
@@ -260,9 +275,10 @@ int hilo_lauchTimeOut(GestorHilos* gh, double timeout, funcionHilo fh, void* arg
     }
 
     /*Preparamos la estructura para pasar a _postLaunchHilo*/
-    launcher.gestor = gh;
-    launcher.func = fh;
-    launcher.arg = arg;
+    launcher = (HiloLauncher*) calloc(1, sizeof(HiloLauncher));
+    launcher->gestor = gh;
+    launcher->func = fh;
+    launcher->arg = arg;
 
     for (i = 0; i < gh->max; i++) {
         if (!(gh->taken[i])) {
@@ -271,7 +287,7 @@ int hilo_lauchTimeOut(GestorHilos* gh, double timeout, funcionHilo fh, void* arg
         }
     }
     if(notTaken<0) return 2; 
-    launcher.hilo = notTaken;
+    launcher->hilo = notTaken;
 
     /*Se marca el hilo como ocupado*/
     sem_wait(&(gh->lock));
@@ -279,7 +295,7 @@ int hilo_lauchTimeOut(GestorHilos* gh, double timeout, funcionHilo fh, void* arg
     sem_post(&(gh->lock));
 
     /*Crear hilo*/
-    error = pthread_create(&(gh->hilos[i]), NULL, _postLaunchHilo, (void*)&launcher);
+    error = pthread_create(&(gh->hilos[i]), NULL, _postLaunchHilo, (void*)launcher);
     if (error) {
         sem_wait(&(gh->lock));
         gh->taken[i] = 0;
@@ -318,7 +334,7 @@ void _clean_hilo(void* arg){
     sem_wait(&(globalGestor->lock));
     globalGestor->taken[hilo] = FALSE;
     sem_post(&(globalGestor->lock));
-    sem_post(&(globalGestor->available));
+    _post_available(globalGestor);
 
     return;
 }
@@ -332,12 +348,36 @@ void* _postLaunchHilo(void* launcher) {
 
     pthread_cleanup_push(_clean_hilo, (void*)hl->hilo);
 
-    
     hl->func(hl->arg);
 
     pthread_cleanup_pop(1);
 
+    free(launcher);
     pthread_exit(NULL);
 
     return NULL;
+}
+
+
+
+void _post_available(GestorHilos* g){
+    int i;
+    if(!g) return;
+
+    sem_post(&(g->available));
+    sem_getvalue(&(g->available), &i);
+    if(i==g->max){
+        g->allAvailable = TRUE;
+    }
+    return;
+}
+
+void _wait_available(GestorHilos* g){
+    if(!g) return;
+
+    sem_wait(&(g->available));
+    if(g->allAvailable){
+        g->allAvailable = FALSE;
+    }
+    return;
 }

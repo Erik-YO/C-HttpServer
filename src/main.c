@@ -59,7 +59,7 @@ int test_gestor(GestorHilos* g){
     for(i= 0; i<4; i++){
         err = hilo_launch(g, test_func, NULL);
         if(err){
-            printf("hilo_launch error -> i = %d, \terr = %d", i, err);
+            printf("hilo_launch error -> i = %d, \terr = %d\n", i, err);
             return 1;
         }
     }
