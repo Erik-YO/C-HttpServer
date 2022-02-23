@@ -30,7 +30,7 @@ struct _GestorHilos {
     /*int Max threads*/
     int max;
     /*bool allAvailable*/
-    int allAvailable;
+    sem_t allAvailable;
 };
 
 /*Estructura intermedia para el lanzamiento de hilos*/
@@ -119,6 +119,17 @@ GestorHilos* hilo_getGestor(int maxHilos) {
         return NULL;
     }
 
+    i = sem_init(&(gh->allAvailable), 1, TRUE);
+    if (i<0) {
+        sem_destroy(&(gh->lock));
+        sem_destroy(&(gh->available));
+
+        free(gh->taken);
+        free(gh->hilos);
+        free(gh);
+        return NULL;
+    }
+
     /*Al principio no hay ninguno ocupado*/
     for (i = 0; i < maxHilos; i++) {
         gh->taken[i] = FALSE;
@@ -126,7 +137,6 @@ GestorHilos* hilo_getGestor(int maxHilos) {
     }
 
     gh->max = maxHilos;
-    gh->allAvailable = TRUE;
 
     globalGestor = gh;
 
@@ -178,16 +188,9 @@ void hilo_freeGestor(GestorHilos* gh) {
 
 /*Destroy*/
 int hilo_destroyGestor(GestorHilos* gh) {
-    int i;
-
     if (!gh) return 0;
 
-    sem_wait(&(gh->lock));
-    sem_getvalue(&(gh->available), &i);
-    if (i != gh->max) {
-        return 1;
-    }
-    sem_post(&(gh->lock));
+    sem_wait(&(gh->allAvailable));
 
     hilo_forceDestroyGestor(gh);
     return 0;
@@ -367,17 +370,22 @@ void _post_available(GestorHilos* g){
     sem_post(&(g->available));
     sem_getvalue(&(g->available), &i);
     if(i==g->max){
-        g->allAvailable = TRUE;
+        sem_getvalue(&(g->allAvailable), &i);
+        if(i!=TRUE){
+            sem_post(&(g->allAvailable));
+        }
     }
     return;
 }
 
 void _wait_available(GestorHilos* g){
+    int i;
     if(!g) return;
 
     sem_wait(&(g->available));
-    if(g->allAvailable){
-        g->allAvailable = FALSE;
+    sem_getvalue(&(g->allAvailable), &i);
+    if(i==TRUE){
+        sem_wait(&(g->allAvailable));
     }
     return;
 }

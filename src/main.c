@@ -89,7 +89,7 @@ int main(){
 
 
     printf("Ejecutado test = %d\n\n", res);
-    hilo_forceDestroyGestor(g);
+    hilo_destroyGestor(g);
 
     return 0;
 }
