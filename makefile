@@ -13,6 +13,7 @@ FLAGS= -ansi -pedantic -Wall -g -I$(INC)
 LIB_FLAGS=-rcs
 THREADF=-pthread -lpthread -lrt
 
+TEST_THREAD=test_hilos
 MAIN_CLIENT=client
 MAIN_SERVER=server
 
@@ -76,7 +77,10 @@ $(OBJ)/$(MAIN_CLIENT).o: $(SRC)/$(MAIN_CLIENT).c
 	$(CC) $(FLAGS) -o $@ -c $(SRC)/$(MAIN_CLIENT).c $(THREADF)
 	@echo "$(MAIN_CLIENT).o generated"
 
-
+# obj de hilos pruebas
+$(OBJ)/$(TEST_THREAD).o: $(SRC)/$(TEST_THREAD).c
+	$(CC) $(FLAGS) -o $@ -c $(SRC)/$(TEST_THREAD).c $(THREADF)
+	@echo "$(TEST_THREAD).o generated"
 
 
 
@@ -89,6 +93,12 @@ $(MAIN_SERVER): $(OBJ)/$(MAIN_SERVER).o $(OBJECT_FILES)
 $(MAIN_CLIENT): $(OBJ)/$(MAIN_CLIENT).o $(OBJECT_FILES)
 	$(CC) -o ./$(MAIN_CLIENT) $(OBJ)/$(MAIN_CLIENT).o $(OBJECT_FILES) $(THREADF)
 	@echo "$(MAIN_CLIENT) generated"
+
+# Main de hilos de pruebas
+# DUDA: ¿quitamos /hilos.o para crear test_hilos? (ya que está hilos.a)
+$(TEST_THREAD): $(OBJ)/$(TEST_THREAD).o $(OBJECT_FILES) $(OBJ)/hilos.o
+	$(CC) -o ./$(TEST_THREAD) $(OBJ)/$(TEST_THREAD).o $(OBJECT_FILES) $(THREADF)
+	@echo "$(TEST_THREAD) generated"
 
 
 
