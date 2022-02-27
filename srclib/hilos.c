@@ -180,6 +180,7 @@ void hilo_freeGestor(GestorHilos* gh) {
     }
 
     free(gh);
+    globalGestor = NULL;
 
     return;
 }
@@ -190,7 +191,7 @@ int hilo_destroyGestor(GestorHilos* gh) {
 
     sem_wait(&(gh->allAvailable));
 
-    hilo_forceDestroyGestor(gh);
+    hilo_freeGestor(gh);
     return 0;
 }
 
@@ -201,8 +202,6 @@ void hilo_forceDestroyGestor(GestorHilos* gh) {
     hilo_closeHilos(gh);
 
     hilo_freeGestor(gh);
-
-    globalGestor = NULL;
 
     return;
 }
@@ -327,32 +326,39 @@ void _makeAvailable(void* arg) {
 }
 
 void _clean_hilo(void* arg) {
-    int hilo = (intptr_t)arg;
+    HiloLauncher* hl = (HiloLauncher*)arg;
     if (!globalGestor) return;
 
     sem_wait(&(globalGestor->lock));
-    globalGestor->taken[hilo] = FALSE;
+    if (!globalGestor) return;
+    globalGestor->taken[hl->hilo] = FALSE;
+    globalGestor->hilos[hl->hilo] = 0;
     sem_post(&(globalGestor->lock));
     _post_available(globalGestor);
+
+    pthread_exit(NULL);
 
     return;
 }
 
 /*Llama a la funcion y al terminar deja libre */
 void* _postLaunchHilo(void* launcher) {
-    HiloLauncher* hl = (HiloLauncher*)launcher;
+    HiloLauncher* launch = (HiloLauncher*)launcher;
+    HiloLauncher hl;
+
+    hl.gestor = launch->gestor;
+    hl.func = launch->func;
+    hl.hilo = launch->hilo;
+    hl.arg = launch->arg;
+    free(launcher);
 
     pthread_detach(pthread_self());
 
-    /*pthread_cleanup_push(_clean_hilo, (void*)hl->hilo);*/
-    pthread_cleanup_push(_clean_hilo, (void*)(intptr_t)hl->hilo);
+    pthread_cleanup_push(_clean_hilo, (void*)&hl);
 
-    hl->func(hl->arg);
+    hl.func(hl.arg);
 
     pthread_cleanup_pop(1);
-
-    free(launcher);
-    pthread_exit(NULL);
 
     return NULL;
 }

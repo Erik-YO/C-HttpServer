@@ -16,7 +16,7 @@ void *f_prueba(void *arg) {
     int i;
 
     for (i = 0; i < strlen(msg); i++) {
-        printf(" %c ", msg[i]);
+        printf("%c ", msg[i]);
         fflush(stdout);
         sleep(1);
     }
@@ -28,44 +28,44 @@ void *f_prueba(void *arg) {
 int test1_hilos(GestorHilos *g) {
     int err;
 
-    if(!g) return -1;
+    if(!g) return 1;
 
     /*comprobar numMaxHilos*/
     if(hilo_getMax(g)!=9) {
-        hilo_destroyGestor(g);
         printf("Error al comprobar numMaxHilos. \n");
+        return 2;
     } else {
         printf("OK: asignar num max hilos y se comprueba el num. \n");
     }
 
     /*probar funcion launch hilos*/
-    err = hilo_launch(g, f_prueba, " Mensaje ");
+    err = hilo_launch(g, f_prueba, "Mensaje");
     if(err != 0) {
-        hilo_destroyGestor(g);
         printf("Error al probar funcion hilos. \n");
+        return 3;
     } else {
         printf("OK: probar funcion hilos \n");
     }
 
     /*probar funcion launch hilos*/
-    err = hilo_lauchTimeOut(g, 3, f_prueba, " Mensaje 2");
+    err = hilo_lauchTimeOut(g, 3, f_prueba, "Mensaje_2");
     if(err != 0) {
-        hilo_destroyGestor(g);
         printf("Error al probar funcion hilos. \n");
+        return 4;
     } else {
         printf("OK: probar funcion hilos \n");
     }
-
+    sleep(1);
     /*comprobar que se han activado hilos*/
     err = hilo_getActive(g);
-    if(err < 1) {
-        hilo_destroyGestor(g);
-        printf("Error al probar funcion hilos por no haberse activado ningun hilo \n");
+    if(err != 2) {
+        printf("Error al probar funcion hilos por no haberse activado algun hilo \n");
+        return 5;
     } else {
         printf("OK: num hilos activos tras el launch \n");
     }
 
-    return 1;
+    return 0;
 }
 
 
@@ -73,30 +73,26 @@ int test1_hilos(GestorHilos *g) {
 int test2_hilos(GestorHilos *g) {
     int err;
 
-    if(!g) return -1;
+    if(!g) return 1;
 
     /*comprobar cerrar hilos en caso sin nada*/
     err = hilo_closeHilos(NULL);
     if(err != 1) {
         printf("Error cerrar hilos en caso NULL \n");
+        return 2;
     } else {
         printf("OK: cerrar hilos funciona bien en caso de error \n");
     }
 
     /*comprobar cerrar hilos en caso normal*/
-    err = hilo_closeHilos(g);
-    if(err != 0) {
-        hilo_destroyGestor(g);
-        printf("Error cerrar hilos \n");
-    } else {
-        printf("OK: hilos se cierran correctamente \n");
-    }
+    hilo_destroyGestor(g);
+    g=hilo_getGestor(9);
 
     /*comprobar num hilos activos tras cerrar*/
     err = hilo_getActive(g);
-    if(err != 2) {
-        hilo_destroyGestor(g);
+    if(err != 0) {
         printf("Error num hilos activos tras cerrar hilos. Da %d\n", err);
+        return 4;
     } else {
         printf("OK: num hilos activos correctos (1) tras cerrar hilos. \n");
     }
@@ -104,13 +100,13 @@ int test2_hilos(GestorHilos *g) {
     /*comprobar num hilos max tras cerrar*/
     err = hilo_getMax(g);
     if(err != 9) { /*sigue siendo 9 porque lo definimos asi en el int main*/
-        hilo_destroyGestor(g);
         printf("Error num hilos max tras cerrar hilos. Da %d \n", err);
+        return 5;
     } else {
         printf("OK: num hilos max correctos tras cerrar hilos. \n");
     }
 
-    return 1;
+    return 0;
 }
 
 
@@ -125,6 +121,7 @@ int main() {
         hilo_destroyGestor(g);
         printf("Error al crear gestor hilos. \n");
         g=NULL;
+        return 1;
     } else {
         printf("OK: creacion de un gestor hilos inicio \n");
     }
@@ -132,9 +129,10 @@ int main() {
     /*comprobar destruir gestor hilos*/
     err = hilo_destroyGestor(g);
     if(err != 0) {
-        hilo_forceDestroyGestor(g);
+        hilo_destroyGestor(g);
         printf("Error al destruir gestor hilos. \n");
         g=NULL;
+        return 3;
     }else {
         printf("OK: destruir gestor hilos \n");
     }
@@ -145,32 +143,39 @@ int main() {
         hilo_destroyGestor(g);
         printf("Error al crear gestor hilos. \n");
         g=NULL;
+        return 4;
     } else {
         printf("OK: creacion de un gestor hilos tras destruir otro \n");
     }
 
 
-    printf("\n empieza test 1: \n");
+    printf("\n--------------------------\n > Empieza test 1: \n");
     err=test1_hilos(g);
-    if(err != 1) {
+    if(err) {
         hilo_destroyGestor(g);
-        printf("Error en el test 1 \n");
+        printf("Error %d en el test 1 \n", err);
         g=NULL;
+        return 5;
     } else {
         printf("OK: test 1 todo bien \n");
     }
 
-    printf("\n empieza test 2: \n");
+    hilo_destroyGestor(g);
+    g=hilo_getGestor(9);
+
+    printf("\n--------------------------\n > Empieza test 2: \n");
     err=test2_hilos(g);
-    if(err != 1) {
+    if(err) {
         hilo_destroyGestor(g);
-        printf("Error en el test 2 \n");
+        printf("Error %d en el test 2 \n", err);
         g=NULL;
+        return 6;
     } else {
         printf("OK: test 2 todo bien \n");
     }
 
-    
+    hilo_forceDestroyGestor(g);
+
     return 0;
 
 }

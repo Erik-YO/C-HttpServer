@@ -121,8 +121,12 @@ clean:
 
 
 
-valgrind: main
+valgrind_main: main
 	valgrind --leak-check=full --show-leak-kinds=all ./main
+
+
+valgrind_hilos: test_hilos
+	valgrind --leak-check=full --show-leak-kinds=all ./test_hilos
 
 
 #

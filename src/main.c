@@ -46,7 +46,7 @@ int test1(){
 void* test_func(void *arg){
     int i;
 
-    for(i=0; i<5; i++){
+    for(i=0; i<3; i++){
 
         printf("Hilo %ld - i=%d\n", (long)pthread_self()%100, i);
         sleep(1);
