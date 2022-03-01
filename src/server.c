@@ -40,12 +40,7 @@ void * doit(void *arg) {
 	return(NULL);
 }
 
-void process_request(int arg){
 
-	printf("Request %d\n", arg);
-
-	return;
-}
 
 int tcp_listen(char* a1, char *a2, socklen_t* len){
 	int lis_res, bind_res, sockfd;
@@ -123,6 +118,18 @@ int func(int connfd)
     }
 
 }
+
+void process_request(int arg){
+
+    if(arg < 0); return NULL; /*Error porque lo que pasa el cliente esta mal*/
+
+    /*En arg, encontrar la forma de identificar la orden*/
+    /*Entonces añadir if y else para llamar a otras funciones dependiendo de lo anterior*/
+
+	printf("Request %d\n", arg);
+
+	return;
+}
    
 /*/ Driver function/*/
 int main()
@@ -151,6 +158,9 @@ int main()
             close(sockfd);
             return 2;
         }
+
+        process_request(connfd);
+
     
         /*/ Function for chatting between client and server/*/
         if(func(connfd)){
