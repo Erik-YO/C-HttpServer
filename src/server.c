@@ -70,7 +70,8 @@ int tcp_listen(char* a1, char *a2, socklen_t* len){
 #include <arpa/inet.h> /*Para inet_ntop*/
 #include "tcp.h"
 #include "types.h"
-#define MAX 80
+#include "process.h"
+#define MAX 8000
 #define PORT 8080
 #define SA struct sockaddr
 
@@ -119,18 +120,6 @@ int func(int connfd)
 
 }
 
-void process_request(int arg){
-
-    if(arg < 0); return NULL; /*Error porque lo que pasa el cliente esta mal*/
-
-    /*En arg, encontrar la forma de identificar la orden*/
-    /*Entonces añadir if y else para llamar a otras funciones dependiendo de lo anterior*/
-
-	printf("Request %d\n", arg);
-
-	return;
-}
-   
 /*/ Driver function/*/
 int main()
 {
@@ -159,15 +148,16 @@ int main()
             return 2;
         }
 
+	    if(DEBUG) printf("Connfd = %d\n", connfd);
         process_request(connfd);
 
     
         /*/ Function for chatting between client and server/*/
-        if(func(connfd)){
+        /*if(func(connfd)){
             
             if(DEBUG) printf("server main > Server Closed\n");
             break;
-        }
+        }*/
     }
    
     /*/ After chatting close the socket/*/

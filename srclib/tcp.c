@@ -37,6 +37,7 @@ void buffer_reset(void* buff, int size){
 int tcp_listen(){
     int sockfd;
     struct sockaddr_in servaddr;
+    int flag=1;
    
     /*/ socket create and verification/*/
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -52,6 +53,12 @@ int tcp_listen(){
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
     servaddr.sin_port = htons(PORT);
+
+    /* Opciones Reusable */
+    if (-1 == setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag))) {
+        if(DEBUG) printf("tcp_listen > Socket options error\n");
+        return -2;
+    }
    
     /*/ Binding newly created socket to given IP and verification/*/
     if ((bind(sockfd, (SA*)&servaddr, sizeof(servaddr))) != 0) {
