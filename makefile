@@ -16,10 +16,12 @@ THREADF=-pthread -lpthread -lrt
 TEST_THREAD=test_hilos
 MAIN_CLIENT=client
 MAIN_SERVER=server
+TEST_PROC=process_test
 
 EXE=$(MAIN_SERVER)
 
-OBJECT_FILES=$(LIB)/tcp.a $(LIB)/hilos.a $(LIB)/picohttpparser.a $(OBJ)/process.o
+LIB_FILES=$(LIB)/tcp.a $(LIB)/hilos.a $(LIB)/picohttpparser.a
+OBJECT_FILES=$(OBJ)/process.o
 
 #OBJECT_FILES=$(OBJ)/$(MAIN_SERVER).o $(OBJ)/tcp.o $(SRC)/fuente.o $(LIB)/libreria.a
 
@@ -53,7 +55,7 @@ $(OBJ)/tcp.o: $(SRCLIB)/tcp.c $(INC)/tcp.h
 
 $(LIB)/tcp.a: $(OBJ)/tcp.o
 	$(LIBCOMP) $(LIB_FLAGS) $(LIB)/tcp.a $(OBJ)/tcp.o
-	@echo "tcp.a generated"
+	@echo "$@ generated"
 
 
 
@@ -63,7 +65,7 @@ $(OBJ)/hilos.o: $(SRCLIB)/hilos.c $(INC)/hilos.h
 
 $(LIB)/hilos.a: $(OBJ)/hilos.o
 	$(LIBCOMP) $(LIB_FLAGS) $(LIB)/hilos.a $(OBJ)/hilos.o
-	@echo "hilos.a generated"
+	@echo "$@ generated"
 
 
 
@@ -73,14 +75,14 @@ $(OBJ)/picohttpparser.o: $(SRCLIB)/picohttpparser.c $(INC)/picohttpparser.h
 
 $(LIB)/picohttpparser.a: $(OBJ)/picohttpparser.o
 	$(LIBCOMP) $(LIB_FLAGS) $(LIB)/picohttpparser.a $(OBJ)/picohttpparser.o
-	@echo "picohttpparser.a generated"
+	@echo "$@ generated"
 
 
 
 # obj de process
-$(OBJ)/process.o: $(SRC)/process.c
-	$(CC) $(FLAGS) -o $@ -c $(SRC)/process.c $(THREADF)
-	@echo "process.o generated"
+$(OBJ)/process.o: $(SRC)/process.c $(INC)/process.h
+	$(CC) $(FLAGS) -o $@ -c $(SRC)/process.c
+	@echo "$@ generated"
 
 
 
@@ -95,19 +97,22 @@ $(OBJ)/process.o: $(SRC)/process.c
 # obj de servidor
 $(OBJ)/$(MAIN_SERVER).o: $(SRC)/$(MAIN_SERVER).c
 	$(CC) $(FLAGS) -o $@ -c $(SRC)/$(MAIN_SERVER).c $(THREADF)
-	@echo "$(MAIN_SERVER).o generated"
+	@echo "$@ generated"
 
 # obj de cliente de pruebas
 $(OBJ)/$(MAIN_CLIENT).o: $(SRC)/$(MAIN_CLIENT).c
 	$(CC) $(FLAGS) -o $@ -c $(SRC)/$(MAIN_CLIENT).c $(THREADF)
-	@echo "$(MAIN_CLIENT).o generated"
+	@echo "$@ generated"
 
 # obj de hilos pruebas
 $(OBJ)/$(TEST_THREAD).o: $(SRC)/$(TEST_THREAD).c
 	$(CC) $(FLAGS) -o $@ -c $(SRC)/$(TEST_THREAD).c $(THREADF)
-	@echo "$(TEST_THREAD).o generated"
+	@echo "$@ generated"
 
-
+# obj de test de process
+$(OBJ)/$(TEST_PROC).o: $(SRC)/$(TEST_PROC).c
+	$(CC) $(FLAGS) -o $@ -c $(SRC)/$(TEST_PROC).c
+	@echo "$@ generated"
 
 
 
@@ -116,19 +121,25 @@ $(OBJ)/$(TEST_THREAD).o: $(SRC)/$(TEST_THREAD).c
 
 
 # Main de servidor
-$(MAIN_SERVER): $(OBJ)/$(MAIN_SERVER).o $(OBJECT_FILES) $(OBJ)/process.o
-	$(CC) -o ./$(MAIN_SERVER) $(OBJ)/$(MAIN_SERVER).o $(OBJECT_FILES) $(OBJ)/process.o $(THREADF)
+$(MAIN_SERVER): $(OBJ)/$(MAIN_SERVER).o $(LIB_FILES) $(OBJECT_FILES)
+	$(CC) -o ./$(MAIN_SERVER) $(OBJ)/$(MAIN_SERVER).o $(LIB_FILES) $(OBJECT_FILES) $(THREADF)
 	@echo "$(MAIN_SERVER) generated"
 
 # Main de cliente de pruebas
-$(MAIN_CLIENT): $(OBJ)/$(MAIN_CLIENT).o $(OBJECT_FILES)
-	$(CC) -o ./$(MAIN_CLIENT) $(OBJ)/$(MAIN_CLIENT).o $(OBJECT_FILES) $(THREADF)
+$(MAIN_CLIENT): $(OBJ)/$(MAIN_CLIENT).o $(LIB_FILES)
+	$(CC) -o ./$(MAIN_CLIENT) $(OBJ)/$(MAIN_CLIENT).o $(LIB_FILES) $(THREADF)
 	@echo "$(MAIN_CLIENT) generated"
 
 # Main de hilos de pruebas
-$(TEST_THREAD): $(OBJ)/$(TEST_THREAD).o $(OBJECT_FILES)
-	$(CC) -o ./$(TEST_THREAD) $(OBJ)/$(TEST_THREAD).o $(OBJECT_FILES) $(THREADF)
+$(TEST_THREAD): $(OBJ)/$(TEST_THREAD).o $(LIB_FILES)
+	$(CC) -o ./$(TEST_THREAD) $(OBJ)/$(TEST_THREAD).o $(LIB_FILES) $(THREADF)
 	@echo "$(TEST_THREAD) generated"
+
+# main test process
+$(TEST_PROC): $(OBJ)/$(TEST_PROC).o $(LIB_FILES) $(OBJECT_FILES)
+	$(CC) -o ./$(TEST_PROC) $(OBJ)/$(TEST_PROC).o $(LIB_FILES)
+	@echo "$@ generated"
+
 
 
 
@@ -136,13 +147,13 @@ $(TEST_THREAD): $(OBJ)/$(TEST_THREAD).o $(OBJECT_FILES)
 # obj main de pruebas
 $(OBJ)/main.o: $(SRC)/main.c
 	$(CC) $(FLAGS) -o $@ -c $(SRC)/main.c $(THREADF)
-	@echo "main.o generated"
+	@echo "$@ generated"
 
 
 # Main de pruebas
-main: $(OBJ)/main.o $(OBJECT_FILES)
-	$(CC) -o ./main $(OBJ)/main.o $(OBJECT_FILES) $(THREADF)
-	@echo "main generated"
+main: $(OBJ)/main.o $(LIB_FILES)
+	$(CC) -o ./main $(OBJ)/main.o $(LIB_FILES) $(THREADF)
+	@echo "$@ generated"
 
 
 

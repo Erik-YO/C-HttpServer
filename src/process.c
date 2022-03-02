@@ -4,15 +4,14 @@
 
 
 
-#include "process.h"
-
-#include "types.h"
-#include "picohttpparser.h"
+#include <unistd.h>
 #include <strings.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
+#include "types.h"
+#include "picohttpparser.h"
+#include "process.h"
 #define MAX_BUF 8000
 #define MAX_HEADERS 100
 
@@ -42,15 +41,21 @@ typedef struct {
 
 
 
+/* Definitions */
+
+int process_parse_request(http_req *data, char *buf, int len);
 
 
-int parse_request(http_req *data, char *buf, int len){
+
+/* Functions */
+
+
+int process_parse_request(http_req *data, char *buf, int len){
     int err;
-    struct phr_header headers[MAX_HEADERS];
-    size_t buflen = 0, prevbuflen = 0, method_len, path_len, num_headers;
+    size_t prevbuflen = 0, method_len, path_len;
 
     err = phr_parse_request(buf, len, &(data->method), &method_len, &(data->path), &path_len,
-                             &(data->version), &(data->headers), &(data->numHeaders), prevbuflen);
+                             &(data->version), (data->headers), (size_t*)&(data->numHeaders), prevbuflen);
 
     if(err < 0) return err;
 
@@ -75,7 +80,7 @@ void process_request(int connfd){
     if(DEBUG) printf("\nprocess > process_request > buffer-> %s\n", buf);
 
     /*Parse http request*/
-    err = parse_request(&data, buf, n);
+    err = process_parse_request(&data, buf, n);
 
     /*Error parsing*/
     if(err < 0){
