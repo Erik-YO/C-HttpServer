@@ -9,7 +9,7 @@ LIB=./lib
 
 CC=gcc
 LIBCOMP=ar
-FLAGS= -ansi -pedantic -Wall -g -I$(INC)
+FLAGS= -pedantic -Wall -g -I$(INC)
 LIB_FLAGS=-rcs
 THREADF=-pthread -lpthread -lrt
 
@@ -136,7 +136,7 @@ $(TEST_THREAD): $(OBJ)/$(TEST_THREAD).o $(LIB)/$(SERVER_LIB)
 	$(CC) $(FLAGS) -o ./$@ $(OBJ)/$@.o -L$(LIB)/ -l$(SERVER_LIB) $(THREADF)
 	@echo " > $@ generated\n"
 
-# main test process
+# Main test process
 $(TEST_PROC): $(OBJ)/$(TEST_PROC).o $(LIB)/$(SERVER_LIB)
 	$(CC) $(FLAGS) -o ./$@ $(OBJ)/$@.o -L$(LIB)/ -l$(SERVER_LIB) $(THREADF)
 	@echo " > $@ generated\n"

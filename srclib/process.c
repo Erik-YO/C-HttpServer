@@ -2,11 +2,13 @@
 
 #include "process.h"
 
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "errno.h"
 #include "picohttpparser.h"
@@ -42,11 +44,38 @@ int process_get(http_req *data);
 int process_post(http_req *data);
 int process_options(http_req *data);
 
+/* Variables de control */
+static volatile int endProcess = FALSE;
+
+/* Manejador de senales */
+void manejador(int sig) {
+    if (DEBUG) printf("process > manejador > signal = %d\n", sig);
+    if (sig == SIGINT) endProcess = TRUE;
+}
+
+void process_setSignalHandler() {
+    struct sigaction act;
+
+    act.sa_handler = manejador;
+    sigemptyset(&(act.sa_mask));
+    act.sa_flags = 0;
+
+    if (sigaction(SIGINT, &act, NULL) < 0) {
+        endProcess = TRUE;
+    }
+}
+
+int process_endProcess(){
+    return endProcess;
+}
+
 /* Functions */
 
 int process_parse_request(http_req *data, char *buf, int len) {
     int err, i;
     size_t prevbuflen = 0;
+
+    sleep(3);
 
     /* Numero de */
     data->numHeaders = MAX_HEADERS;
@@ -79,6 +108,102 @@ int process_parse_request(http_req *data, char *buf, int len) {
     return 0;
 }
 
+/* Main processing function */
+void process_request(int connfd) {
+    char buf[MAX_BUF], auxstr[MAX_STR], *mstr;
+    int n, err, i, keep_alive, verbo;
+    http_req data;
+
+    if (connfd < 0) return;
+
+    do {
+        /* Inicia el buffer a '\0' */
+        if (!endProcess) {
+            bzero(buf, MAX_BUF);
+            /* Se lee la peticion del buffer */
+            n = 0;
+            while ((n += read(connfd, buf, sizeof(buf))) == -1 && errno == EINTR && !endProcess)
+                ;
+
+            if (n <= 0) {
+                if (DEBUG && !endProcess)
+                    printf("\nprocess > process_request > buffer read error %d\n", n);
+                close(connfd);
+                return;
+            }
+        }
+        if (DEBUG && !endProcess)
+            printf("\nprocess > process_request > buffer:\n##----##\n%s##----##\n", buf);
+
+        /* Parse http request */
+        if (!endProcess) {
+            err = process_parse_request(&data, buf, n);
+        }
+
+        /*Error parsing*/
+        if (err < 0) {
+            if (DEBUG && !endProcess) printf("process > process_request error = %d\n", err);
+            close(connfd);
+            return;
+        }
+
+        /* Keep alive */
+        for (i = 0, keep_alive = FALSE; i < data.numHeaders && !keep_alive && !endProcess; i++) {
+            sprintf(auxstr, "%.*s", (int)data.headers[i].value_len, data.headers[i].value);
+            if (!strcmp(auxstr, "Connection: keep-alive")) keep_alive = TRUE;
+        }
+        if (DEBUG && !endProcess) printf("keep-alive = %d\n", keep_alive);
+
+        /* ACTUAL PROCESS REQUEST */
+        if (!endProcess) {
+            sprintf(auxstr, "%.*s", data.method_len, data.method);
+            verbo = get_method(auxstr);
+        }
+        if (!endProcess) {
+            switch (verbo) {
+                case METHOD_GET:
+                    mstr = GET;
+                    err = process_get(&data);
+                    break;
+                case METHOD_POST:
+                    mstr = POST;
+                    err = process_post(&data);
+                    break;
+                case METHOD_OPTIONS:
+                    mstr = OPTIONS;
+                    err = process_options(&data);
+                    break;
+
+                default:
+                    /* Verbo no soportado */
+                    n = sprintf(buf, NOT_SUPPORTED_VERB);
+                    write(connfd, buf, sizeof(char) * n);
+
+                    if (DEBUG) printf("\nprocess_request > verbo no soportado %s\n", auxstr);
+                    /* Cierre del descriptor de fichero */
+                    close(connfd);
+                    return;
+            }
+
+            if (DEBUG) printf("process_request > process_%s() = %d\n", auxstr, err);
+        }
+        /* end processing */
+
+        /* Response */
+        if (!endProcess) {
+            n = sprintf(buf, "%s -> %s\r\r\n", DEFAULT_RESPONSE, mstr);
+            write(connfd, buf, sizeof(char) * n);
+        }
+        /* End iteration */
+
+    } while (keep_alive && !endProcess);
+    /* Se cierra el descriptor de fichero de conexion */
+    close(connfd);
+    if (DEBUG && !endProcess) printf("process_request > conexion file descriptor closed\n");
+
+    return;
+}
+
 /* Verbos soportados */
 int get_method(char *mstr) {
     if (!strcmp(mstr, GET)) return METHOD_GET;
@@ -90,97 +215,19 @@ int get_method(char *mstr) {
 
 /* Funciones de los verbos soportados */
 /* GET */
-int process_get(http_req *data) { return 0; }
+int process_get(http_req *data) {
+    if (DEBUG) printf("process > process_get\n");
+    return 0;
+}
 
 /* POST */
-int process_post(http_req *data) { return 0; }
+int process_post(http_req *data) {
+    if (DEBUG) printf("process > process_post\n");
+    return 0;
+}
 
 /* OPTIONS */
-int process_options(http_req *data) { return 0; }
-
-void process_request(int connfd) {
-    char buf[MAX_BUF], phrase[] = "Peticion devuelta", auxstr[MAX_STR], *mstr;
-    int n, err, i, keep_alive, verbo;
-    http_req data;
-
-    if (connfd < 0) return;
-
-    do {
-        /* Inicia el buffer a '\0' */
-        bzero(buf, MAX_BUF);
-        /* Se lee la peticion del buffer */
-        n=0;
-        while ((n += read(connfd, buf, sizeof(buf))) == -1 && errno == EINTR)
-            ;
-
-        if (n <= 0) {
-            if (DEBUG) printf("\nprocess > process_request > buffer read error %d\n", n);
-            close(connfd);
-            return;
-        }
-
-        if (DEBUG) printf("\nprocess > process_request > buffer:\n##----##\n%s##----##\n", buf);
-
-        /* Parse http request */
-        err = process_parse_request(&data, buf, n);
-
-        /*Error parsing*/
-        if (err < 0) {
-            if (DEBUG) printf("process > process_request error = %d\n", err);
-            close(connfd);
-            return;
-        }
-
-        /* Keep alive */
-        for (i = 0, keep_alive = FALSE; i < data.numHeaders && !keep_alive; i++) {
-            sprintf(auxstr, "%.*s", (int)data.headers[i].value_len, data.headers[i].value);
-            if (!strcmp(auxstr, "Connection: keep-alive")) keep_alive = TRUE;
-        }
-        if (DEBUG) printf("keep-alive = %d\n", keep_alive);
-
-        /* ACTUAL PROCESS REQUEST */
-
-        sprintf(auxstr, "%.*s", data.method_len, data.method);
-        verbo = get_method(auxstr);
-        switch (verbo) {
-            case METHOD_GET:
-                mstr = GET;
-                err = process_get(&data);
-                break;
-            case METHOD_POST:
-                mstr = POST;
-                err = process_post(&data);
-                break;
-            case METHOD_OPTIONS:
-                mstr = OPTIONS;
-                err = process_options(&data);
-                break;
-
-            default:
-                /* Verbo no soportado */
-                n = sprintf(buf, "Verbo no soportado\r\r\n");
-                write(connfd, buf, sizeof(char) * n);
-
-                if (DEBUG) printf("\nprocess_request > verbo no soportado %s\n", auxstr);
-                /* Cierre del descriptor de fichero */
-                close(connfd);
-                return;
-        }
-
-        if(DEBUG) printf("process_request > process_%s() = %d\n", auxstr, err);
-
-        /* end process */
-
-        /* Response */
-        n = sprintf(buf, "%s -> %s\r\r\n", phrase, mstr);
-        write(connfd, buf, sizeof(char) * n);
-
-        /* End iteration */
-
-    } while (keep_alive);
-    /* Se cierra el descriptor de fichero de conexion */
-    close(connfd);
-    if (DEBUG) printf("process_request > conexion file descriptor closed\n");
-
-    return;
+int process_options(http_req *data) {
+    if (DEBUG) printf("process > process_options\n");
+    return 0;
 }
