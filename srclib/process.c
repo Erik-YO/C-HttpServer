@@ -40,9 +40,9 @@ typedef struct {
 
 int process_parse_request(http_req *data, char *buf, int len);
 int get_method(char *mstr);
-int process_get(http_req *data);
-int process_post(http_req *data);
-int process_options(http_req *data);
+int process_get(http_req *data, int connfd);
+int process_post(http_req *data, int connfd);
+int process_options(http_req *data, int connfd);
 
 /* Variables de control */
 static volatile int endProcess = FALSE;
@@ -163,15 +163,15 @@ void process_request(int connfd) {
             switch (verbo) {
                 case METHOD_GET:
                     mstr = GET;
-                    err = process_get(&data);
+                    err = process_get(&data, connfd);
                     break;
                 case METHOD_POST:
                     mstr = POST;
-                    err = process_post(&data);
+                    err = process_post(&data, connfd);
                     break;
                 case METHOD_OPTIONS:
                     mstr = OPTIONS;
-                    err = process_options(&data);
+                    err = process_options(&data, connfd);
                     break;
 
                 default:
@@ -215,19 +215,102 @@ int get_method(char *mstr) {
 
 /* Funciones de los verbos soportados */
 /* GET */
-int process_get(http_req *data) {
-    if (DEBUG) printf("process > process_get\n");
+/*obtiene un recurso del servidor*/
+int process_get(http_req *data, int connfd) {
+    char buf_response[MAX_BUF], buf_date[MAX_BUF], buf_response2[MAX_BUF];
+    char date[MAX_STR], last_date[MAX_STR];
+    int err;
+
+    if(!data || connfd<0) {
+        printf("process > process_get > error en argumentos\n");
+        close(connfd);
+        return -1;
+    }
+
+    /*mostrar version HTTP y decir que procesa opciones*/
+    sprintf(buf_response, "HTTP/1.%d 200 OK\r\nAllow: %s, %s, %s\r\n", data->version, GET, POST, OPTIONS);
+    
+    /*calcular fecha, aniadirla y poner nombre del servidor y la longitud del contenido*/
+    get_date(&date);
+    sprintf(buf_response2, "Date: %s\r\nServer: %s\r\nContent-Length: 0\r\n\r\n", date, data->headers->name);
+    
+    /*unir ambas partes de la respuesta*/
+    strcat(buf_response, buf_response2);
+
+
+    close(connfd);
     return 0;
 }
 
 /* POST */
-int process_post(http_req *data) {
-    if (DEBUG) printf("process > process_post\n");
+/*para enviar una entidad a un recurso especificado, provocando cambios en el estado o en el servidor*/
+int process_post(http_req *data, int connfd) {
+    char buf_response[MAX_BUF], buf_date[MAX_BUF], buf_response2[MAX_BUF];
+    char date[MAX_STR];
+    int err;
+    FILE *salida;
+
+    if(!data || connfd<0) {
+        printf("process > process_options > error en argumentos\n");
+        close(connfd);
+        return -1;
+    }
+
+    /*identificar el tipo de script*/
+    if((strstr(data->path, ".py")) {
+        sprintf(buf_response, "Python path : %s", data->path);
+    } else if (strstr(data->path, ".php") {
+        sprintf(buf_response, "Php path : %s", data->path);
+    } else {
+        printf("process > process_post > script incorrecto\n");
+
+        close(connfd);
+        return 0;
+    }
+
+    /*si tiene parametros la peticion*/
+    if(!(strstr(data->path, "?")) {/*si tiene "?" significa que hay parametros*/
+        
+    } else { /*si no tiene parametros la peticion*/
+
+    }
+    
+
+    close(connfd);
     return 0;
 }
 
 /* OPTIONS */
-int process_options(http_req *data) {
-    if (DEBUG) printf("process > process_options\n");
+/*para describir las opciones de comunicacion del recurso destino*/
+int process_options(http_req *data, int connfd) {
+    char buf_response[MAX_BUF], buf_date[MAX_BUF], buf_response2[MAX_BUF];
+    char date[MAX_STR];
+    int err;
+
+    if(!data || connfd<0) {
+        printf("process > process_options > error en argumentos\n");
+        close(connfd);
+        return -1;
+    }
+
+    /*mostrar version HTTP y decir que procesa opciones*/
+    sprintf(buf_response, "HTTP/1.%d 200 OK\r\nAllow: %s, %s, %s\r\n", data->version, GET, POST, OPTIONS);
+    
+    /*calcular fecha, aniadirla y poner nombre del servidor y la longitud del contenido*/
+    get_date(&date);
+    sprintf(buf_response2, "Date: %s\r\nServer: %s\r\nContent-Length: 0\r\n\r\n", date, data->headers->name);
+    
+    /*unir ambas partes de la respuesta*/
+    strcat(buf_response, buf_response2);
+
+    /*enviar el file descriptor del cliente a dicho cliente, escribiendo directamente en el descriptor de fichero*/
+    err = write(connfd, buf_response, sizeof(buf_response));
+    if(err < 0) {
+        printf("process > process_options > no se puede responder al cliente\n");
+        return -1;
+    }
+
+    close(connfd);
+
     return 0;
 }
