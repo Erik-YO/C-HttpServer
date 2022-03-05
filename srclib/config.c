@@ -110,8 +110,11 @@ int config_initFromFile() {
     sprintf(debug_file_name, "null");
 
     /* Parseo del fichero */
-    while (fscanf(f, "%s", line) == 1) {
+    while (fgets(line, sizeof(line), f)) {
         llen = strlen(line);
+        if(line[llen-1]=='\n'){
+            line[llen-1] = '\0';
+        }
         if (llen > 0) {
             if (llen > MAX_LINE_LEN) {
                 if (debug_file != f && debug_file != NULL && debug_file != stderr && debug_file != stdout) {
@@ -125,9 +128,8 @@ int config_initFromFile() {
             }
             if (error) {
                 fclose(f);
-                if (config_debug() && config_debug_file()) {
-                    fprintf(config_debug_file(), "config > initFromFile > _parse_line error on line %d > \"%s\"\n", lineNum, line);
-                }
+                printf("config > initFromFile > _parse_line error on line %d > \"%s\"\n", lineNum, line);
+                
                 return -3;
             }
         }
@@ -489,13 +491,9 @@ int _test() {
     printf("Parse_line <%s> = %d\n", test, _parse_line(test));
     sprintf(test, "debug = ");
     printf("Parse_line <%s> = %d\n", test, _parse_line(test));
-    sprintf(test, "\0");
-    printf("Parse_line <%s> = %d\n", test, _parse_line(test));
 
     _set_default_values();
 
-    sprintf(test, "\0");
-    _parse_line(test);
     sprintf(test, "# Test configuration file");
     _parse_line(test);
 
@@ -503,15 +501,9 @@ int _test() {
     _parse_line(test);
     sprintf(test, "debug_file= stdout");
     _parse_line(test);
-    sprintf(test, "\0");
-    _parse_line(test);
     sprintf(test, "max_clients =2");
     _parse_line(test);
-    sprintf(test, "\0");
-    _parse_line(test);
     sprintf(test, "listen_port = 80");
-    _parse_line(test);
-    sprintf(test, "\0");
     _parse_line(test);
     sprintf(test, "server_root=  ./ ");
     _parse_line(test);
@@ -519,15 +511,7 @@ int _test() {
     _parse_line(test);
     sprintf(test, "#comment");
     _parse_line(test);
-    sprintf(test, "\0");
-    _parse_line(test);
-    sprintf(test, "\0");
-    _parse_line(test);
     sprintf(test, " server_signature  = Signature 1.1 ");
-    _parse_line(test);
-    sprintf(test, "\0");
-    _parse_line(test);
-    sprintf(test, "\0");
     _parse_line(test);
 
     debug_file = stdout;

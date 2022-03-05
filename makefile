@@ -20,7 +20,7 @@ TEST_PROC=process_test
 
 EXE=$(MAIN_SERVER)
 
-OBJECT_FILES=$(OBJ)/process.o $(OBJ)/tcp.o $(OBJ)/hilos.o $(OBJ)/picohttpparser.o
+OBJECT_FILES=$(OBJ)/process.o $(OBJ)/tcp.o $(OBJ)/hilos.o $(OBJ)/picohttpparser.o $(OBJ)/config.o
 
 SERVER_LIB=libserver_lib
 
@@ -71,6 +71,12 @@ $(OBJ)/picohttpparser.o: $(SRCLIB)/picohttpparser.c $(INC)/picohttpparser.h
 # obj de process
 $(OBJ)/process.o: $(SRCLIB)/process.c $(INC)/process.h
 	$(CC) $(FLAGS) -o $@ -c $(SRCLIB)/process.c
+	@echo " > $@ generated\n"
+
+
+# obj de config
+$(OBJ)/config.o: $(SRCLIB)/config.c $(INC)/config.h
+	$(CC) $(FLAGS) -o $@ -c $(SRCLIB)/config.c
 	@echo " > $@ generated\n"
 
 
@@ -170,6 +176,8 @@ valgrind_main: main
 valgrind_hilos: test_hilos
 	valgrind --leak-check=full --show-leak-kinds=all ./test_hilos
 
+valgrind_server: server
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./server
 
 #
 #$(OBJ)/$(MAIN_CLIENT).o: $(SRC)/$(MAIN_CLIENT).c
