@@ -25,7 +25,7 @@ int config_initFromFile();
 void config_close_debug_file();
 
 /*
- * FUNCION: char* processRequest(FILE* f)
+ * FUNCION: void config_printHelp(FILE* f)
  * ARGS_IN: FILE* - fichero de impresion (si es NULL imprime en la salida estandar 'stdout')
  * DESCRIPCION: Imprime informacion sobre como utilizar el modulo de configuracion (sus variables)
  */
@@ -63,6 +63,13 @@ int config_listen_port();
  * ARGS_OUT: char* - cadena que sera devuelta en cada cabecera 'ServerName' posterior
  */
 char* config_server_signature();
+
+/*
+ * FUNCION: int config_max_threads()
+ * DESCRIPCION: Devuelve el valor de la variable max_threads
+ * ARGS_OUT: int - indica el numero de hilos que se creara para atender a las peticiones entrantes
+ */
+int config_max_threads();
 
 /*
  * FUNCION: FILE* config_debug_file()
@@ -110,6 +117,13 @@ int config_default_listen_port();
  * ARGS_OUT: char* - cadena que sera devuelta en cada cabecera 'ServerName' posterior
  */
 char* config_default_server_signature();
+
+/*
+ * FUNCION: int config_default_max_threads()
+ * DESCRIPCION: Devuelve el valor por defecto de la variable max_threads
+ * ARGS_OUT: int - indica el numero de hilos que se creara para atender a las peticiones entrantes
+ */
+int config_default_max_threads();
 
 /*
  * FUNCION: FILE* config_default_debug_file()

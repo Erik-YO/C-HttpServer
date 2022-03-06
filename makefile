@@ -179,17 +179,16 @@ valgrind_hilos: test_hilos
 valgrind_server: server
 	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./server
 
-#
-#$(OBJ)/$(MAIN_CLIENT).o: $(SRC)/$(MAIN_CLIENT).c
-#	$(CC) $(FLAGS) -I$(INC) -c $(SRC)/$(MAIN_CLIENT).c -o $(OBJ)/$(MAIN_CLIENT).o
-#
-#	valgrind --leak-check=full ./$(MAIN_SERVER)
-#
-#$(OBJ)/$(MAIN_SERVER).o: $(SRC)/$(MAIN_SERVER).c
-#	$(CC) $(FLAGS) -I$(INC) -c $(SRC)/$(MAIN_SERVER).c -o $(OBJ)/$(MAIN_SERVER).o
-#
 
 
-##$(OBJ)/box.o: $(SRC)/box.c $(INC)/box.h $(INC)/types.h
-##	gcc $(FLAGS) -I$(INC) -c $(SRC)/box.c -o $(OBJ)/box.o
+line-count:
+	wc -l $(SRC)/*.c $(INC)/*.h $(SRCLIB)/*.c
+
+word-count:
+	wc -w $(SRC)/*.c $(INC)/*.h $(SRCLIB)/*.c
+
+char-count:
+	wc -c $(SRC)/*.c $(INC)/*.h $(SRCLIB)/*.c
+
+
 

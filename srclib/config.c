@@ -10,25 +10,28 @@
 #define CONF_FILE_NAME "./server.conf"
 #define COMMENT_SYM '#'
 #define ASSIGN_SYM '='
-#define CONFIG_NUM_VARIABLES 6
+#define CONFIG_NUM_VARIABLES 7
 #define MAX_LINE_LEN 80
 
 /* Default values */
 #define DEF_SERVERROOT "./www"
 #define DEF_MAXCLIENTS 1
 #define DEF_LISTENPORT 8080
+#define DEF_MAX_THREADS 1
 #define DEF_SERVERSIGNATURE "MyServer 1.1"
 #define DEF_DEBUG 0
+
 
 /* Variables names and explanations */
 #define SERVER_ROOT "server_root"
 #define MAX_CLIENTS "max_clients"
 #define LISTEN_PORT "listen_port"
 #define SERVER_SIGNATURE "server_signature"
+#define MAX_THREADS "max_threads"
 #define DEBUG_FILE "debug_file"
 #define DEBUG "debug"
 
-static char *CONFIG_VAR_NAMES[CONFIG_NUM_VARIABLES + 1] = {SERVER_ROOT, MAX_CLIENTS, LISTEN_PORT, SERVER_SIGNATURE,
+static char *CONFIG_VAR_NAMES[CONFIG_NUM_VARIABLES + 1] = {SERVER_ROOT, MAX_CLIENTS, LISTEN_PORT, SERVER_SIGNATURE, MAX_THREADS,
                                                            DEBUG_FILE,  DEBUG,       NULL};
 
 static char *CONFIG_VAR_EXPLAIN[CONFIG_NUM_VARIABLES + 1] = {
@@ -36,17 +39,19 @@ static char *CONFIG_VAR_EXPLAIN[CONFIG_NUM_VARIABLES + 1] = {
     "Maximum number of concurrent clients. Subsequent connections will be rejected",
     "Port where the server will accept connections",
     "String returned on the \"ServerName\" header",
+    "Maximum number of threads to process new connections",
     "Debug messages output file. \"none\" or \"null\" for no output file. \"stderr\" or \"stdout\" for other standar outputs",
     "Print debug messages. Valid values: true/1 or false/0",
     NULL};
 
-static char *CONFIG_VAR_TYPE[CONFIG_NUM_VARIABLES + 1] = {"char*", "int", "int", "char*", "FILE*", "int", NULL};
+static char *CONFIG_VAR_TYPE[CONFIG_NUM_VARIABLES + 1] = {"char*", "int", "int", "char*", "int", "FILE*", "int", NULL};
 
 /* Configurable variables (default values) */
 static char server_root[MAX_LINE_LEN]; /* path without final '/' */
 static int max_clients;
 static int listen_port;
 static char server_signature[MAX_LINE_LEN];
+static int max_threads;
 static FILE *debug_file;
 static int debug;
 
@@ -54,12 +59,56 @@ static int debug;
 static char debug_file_name[MAX_LINE_LEN];
 
 /* Private definitions */
+
+
+/*
+ * FUNCION: void _spaces(FILE* f, int n)
+ * ARGS_IN: FILE* - fichero de impresion
+ *          int - numero de espacios a imprimir
+ * DESCRIPCION: Imprime n espacios ' ' en el fichero f
+ */
 void _spaces(FILE *f, int n);
+
+/*
+ * FUNCION: int _parse_line(char *line)
+ * ARGS_IN: char* - linea a analizar
+ * DESCRIPCION: analiza una linea del fichero y asigna el valor a una variable si corresponde
+ * ARGS_OUT: int - resultado: 0 con ejecucion correcta, 1 en caso contrario
+ */
 int _parse_line(char *line);
+
+/*
+ * FUNCION: int _starts(char *a, char *b)
+ * ARGS_IN: char* - cadena en la que buscar
+ *          char* - subcadena
+ * DESCRIPCION: comprueba si el inicio de la cadena a es igual que b
+ * ARGS_OUT: int - resultado: 1 si corresponde, 0 si no
+ */
 int _starts(char *a, char *b);
+
+/*
+ * FUNCION: void _set_default_values()
+ * DESCRIPCION: establece los valores por defecto a las variables
+ */
 void _set_default_values();
+
+/*
+ * FUNCION: void _print_timestamp()
+ * DESCRIPCION: imprime una marca de tiempo [DD-MM-AAAA hh:mm:ss] en el fichero de debug
+ */
 void _print_timestamp();
+
+/*
+ * FUNCION: void _print_config()
+ * DESCRIPCION: imprime los valores de las variables en el fichero de debug
+ */
 void _print_config();
+
+/*
+ * FUNCION: void _remove_tail_whitespaces(char *str)
+ * ARGS_IN: char* - cadena de caracteres
+ * DESCRIPCION: Elimina los caracteres ' ' (espacio) y '\t' (tabulador) del final de la cadena str
+ */
 void _remove_tail_whitespaces(char *str);
 
 /* Public functions */
@@ -72,6 +121,8 @@ int config_default_max_clients() { return DEF_MAXCLIENTS; }
 int config_default_listen_port() { return DEF_LISTENPORT; }
 
 char *config_default_server_signature() { return DEF_SERVERSIGNATURE; }
+
+int config_default_max_threads() { return DEF_MAX_THREADS; }
 
 FILE *config_default_debug_file() { return stderr; }
 
@@ -86,6 +137,8 @@ int config_max_clients() { return max_clients; }
 int config_listen_port() { return listen_port; }
 
 char *config_server_signature() { return server_signature; }
+
+int config_max_threads() { return max_threads; }
 
 FILE *config_debug_file() { return debug_file; }
 
@@ -215,9 +268,11 @@ void _set_default_values() {
     /*int max_clients;*/
     max_clients = config_default_max_clients();
     /*int listen_port;*/
-    listen_port = config_default_max_clients();
+    listen_port = config_default_listen_port();
     /*char server_signature[MAX_LINE_LEN];*/
     sprintf(server_signature, "%s", config_default_server_signature());
+    /*int max_threads;*/
+    max_threads = config_default_max_threads();
     /*FILE *debug_file;*/
     debug_file = config_default_debug_file();
     /*int debug;*/
@@ -360,6 +415,23 @@ int _parse_line(char *line) {
         /* String copy */
         sprintf(server_signature, "%s", &(line[i]));
 
+    } else if (_starts(&(line[i]), MAX_THREADS)) { /* max_threads */
+        i += strlen(MAX_THREADS);
+
+        while (line[i] == ' ' || line[i] == '\t') i++;
+        if (i >= l) return 1;
+
+        /* Check '=' */
+        if (line[i] != ASSIGN_SYM) return 1;
+        i++;
+
+        while ((line[i] == ' ' || line[i] == '\t') && i < l) i++;
+        if (i >= l) return 1;
+
+        /* String to long -> int */
+        max_threads = (int)strtol(&(line[i]), NULL, 10);
+        if (max_threads <= 0 || errno == ERANGE) return 1;
+
     } else if (_starts(&(line[i]), DEBUG_FILE)) { /* debug_file */
         i += strlen(DEBUG_FILE);
 
@@ -449,6 +521,8 @@ void _print_config() {
     _spaces(debug_file, 2);
     fprintf(debug_file, "%s = '%s'\n", SERVER_SIGNATURE, server_signature);
     _spaces(debug_file, 2);
+    fprintf(debug_file, "%s = %d\n", MAX_THREADS, max_threads);
+    _spaces(debug_file, 2);
     if (debug) {
         fprintf(debug_file, "%s = true\n", DEBUG);
     } else {
@@ -512,6 +586,8 @@ int _test() {
     sprintf(test, "#comment");
     _parse_line(test);
     sprintf(test, " server_signature  = Signature 1.1 ");
+    _parse_line(test);
+    sprintf(test, "max_threads = 3");
     _parse_line(test);
 
     debug_file = stdout;

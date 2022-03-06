@@ -43,10 +43,10 @@ int tcp_listen() {
     }
     buffer_reset(&servaddr, sizeof(servaddr));
 
-    /* Asignar IP y PORT */
+    /* Asignar IP y puerto */
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    servaddr.sin_port = htons(PORT);
+    servaddr.sin_port = htons(config_listen_port());
 
     /* Opciones Reusable */
     if (-1 == setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag))) {
@@ -63,7 +63,7 @@ int tcp_listen() {
     }
 
     /*/ Now server is ready to listen and verification/*/
-    if ((listen(sockfd, LISTEN_QUEUE_SIZE)) != 0) {
+    if ((listen(sockfd, config_max_clients())) != 0) {
         if (config_debug()) fprintf(config_debug_file(), "tcp_listen > Listen error\n");
         return -1;
     } else {
@@ -121,10 +121,10 @@ int tcp_connect(char *ip) {
     }
     buffer_reset(&servaddr, sizeof(servaddr));
 
-    /*/ assign IP, PORT/*/
+    /*/ Asignar IP y puerto/*/
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = inet_addr(ip);
-    servaddr.sin_port = htons(PORT);
+    servaddr.sin_port = htons(config_listen_port());
 
     /*/ connect the client socket to server socket/*/
     if (connect(sockfd, (SA *)&servaddr, sizeof(servaddr)) != 0) {

@@ -10,7 +10,6 @@
 #include "types.h"
 
 #define MAX 80
-#define PORT 8080
 #define SA struct sockaddr
 
 void bzero(void* buff, int size) {
@@ -46,7 +45,13 @@ void func(int sockfd) {
 }
 
 int main() {
-    int sockfd;
+    int sockfd, err;
+
+    err = config_initFromFile();
+    if(err){
+        fprintf(stderr, "client > main > config_initFromFile error\n");
+        return 1;
+    }
 
     /*/ socket create and verification/*/
     sockfd = tcp_connect("127.0.0.1");
@@ -59,5 +64,6 @@ int main() {
 
     /*/ close the socket /*/
     close(sockfd);
+    config_close_debug_file();
     return 0;
 }
