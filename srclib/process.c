@@ -16,6 +16,7 @@
 #include "types.h"
 #define MAX_BUF 8000
 #define MAX_STR 90
+#define METHOD_STR_LEN 10
 #define MAX_HEADERS 100
 
 /* almacena toda la informacion de una peticion http */
@@ -27,7 +28,7 @@ typedef struct {
     /*Longitud total en Bytes de request*/
     int total_len;
     /*Metodo: GET, POST, ...*/
-    const char *method;
+    char method[METHOD_STR_LEN];
     int method_len;
     /*Ruta*/
     const char *path;
@@ -76,13 +77,15 @@ int process_endProcess() { return endProcess; }
 int process_parse_request(http_req *data, char *buf, int len) {
     int err, i;
     size_t prevbuflen = 0, numHead=MAX_HEADERS;
+    const char* method;
 
     if(!data || !buf) return -4;
     
     /* picohttpparser */
-    err = phr_parse_request(buf, len, &(data->method), (size_t *)&(data->method_len), &(data->path), (size_t *)&(data->path_len),
+    err = phr_parse_request(buf, len, &(method), (size_t *)&(data->method_len), &(data->path), (size_t *)&(data->path_len),
                             &(data->version), (data->headers), &(numHead), prevbuflen);
 
+    sprintf(data->method, "%.*s", data->method_len, method);
     /* Numero de cabeceras maximo */
     data->numHeaders = (int) numHead;
     data->total_len = err;
@@ -138,6 +141,8 @@ void process_request(int connfd) {
         /* Parse http request */
         if (!endProcess) {
             err = process_parse_request(&data, buf, n);
+            if (config_debug()) fprintf(config_debug_file(), "\nprocess_request > verbo -> len = %d, '%.*s'\n", data.method_len, data.method_len, data.method);
+            
         }
 
         /*Error parsing*/
@@ -295,13 +300,13 @@ int process_options(http_req *data, int connfd) {
 
     /*calcular fecha, aniadirla y poner nombre del servidor y la longitud del contenido*/
     get_date(date);
-    sprintf(buf_response2, "Date: %s\r\nServer: %s\r\nContent-Length: 0\r\n\r\n", date, data->headers->name);
+    sprintf(buf_response2, "Date: %s\r\nServer: %s\r\nContent-Length: 0\r\n\r\n", date, config_server_signature());
 
     /*unir ambas partes de la respuesta*/
     strcat(buf_response, buf_response2);
 
     /*enviar el file descriptor del cliente a dicho cliente, escribiendo directamente en el descriptor de fichero*/
-    err = write(connfd, buf_response, sizeof(buf_response));
+    err = write(connfd, buf_response, strlen(buf_response));
     if (err < 0) {
         if(config_debug()) fprintf(config_debug_file(), "process > process_options > no se puede responder al cliente\n");
         return -1;
