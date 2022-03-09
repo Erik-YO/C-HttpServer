@@ -40,6 +40,25 @@ typedef struct {
 
 } http_req;
 
+/*These are the extensions associated to every label Content-Type*/
+struct{
+    char *extension;
+    char *content_type;
+}ext_plus_ctype[] = {
+    {".txt", "text/plain"},
+    {".htm", "text/html"},
+    {".html", "text/html"},
+    {".gif", "image/gif"},
+    {".jpg", "image/jpeg"},
+    {".jpeg", "image/jpeg"},
+    {".mpeg", "video/mpeg"},
+    {".mpg", "video/mpeg"},
+    {".doc", "application/msword"},
+    {".docx", "application/msword"},
+    {".pdf", "application/pdf"},
+    {"-1", "-1"}
+};
+
 /* Definitions */
 
 int process_parse_request(http_req *data, char *buf, int len);
@@ -52,6 +71,7 @@ int process_options(http_req *data, int connfd);
 
 int get_date(char *date);
 int strends(char* a, char* b);
+int get_content_type(char *path, char *extensiontype);
 
 /* Variables de control */
 static volatile int endProcess = FALSE;
@@ -408,3 +428,24 @@ int strends(char* a, char* b){
     return FALSE;
 }
 
+/*para obtener el tipo de contenido que tiene*/
+int get_content_type(char *path, char *extensiontype){
+    int i=0, err;
+
+    /* recorre toda la estructura que contiene todos los tipos con el while */
+    /* se para cuando identifica uno de ellos o cuando llega al final*/
+    while(strcmp(ext_plus_ctype[i].extension, "-1") != 0) {
+        if (strstr(path, ext_plus_ctype[i].extension)) {
+            strcpy(extensiontype, ext_plus_ctype[i].content_type);
+        }
+        i++;
+    }
+
+    err=strcmp(extensiontype, "-1");
+    if(err!=0) {
+        if(config_debug()) fprintf(config_debug_file(), "process > process_get_content_type no identifica bien el tipo");
+        return -1;
+    }
+
+    return 0;
+}
