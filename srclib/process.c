@@ -33,7 +33,7 @@ typedef struct {
     char method[METHOD_STR_LEN];
     int method_len;
     /*Ruta*/
-    const char path[PATH_STR_LEN];
+    char path[PATH_STR_LEN];
     int path_len;
     /* Http version = 1.<version> */
     int version;
@@ -44,13 +44,14 @@ typedef struct {
 struct{
     char *extension;
     char *content_type;
-}ext_plus_ctype[] = {
+}extension_type[] = {
     {".txt", "text/plain"},
-    {".htm", "text/html"},
+    {".htm", "text/html; charset=utf-8"},
     {".html", "text/html"},
     {".gif", "image/gif"},
     {".jpg", "image/jpeg"},
     {".jpeg", "image/jpeg"},
+    {".ico", "image/ico"},
     {".mpeg", "video/mpeg"},
     {".mpg", "video/mpeg"},
     {".doc", "application/msword"},
@@ -71,7 +72,7 @@ int process_options(http_req *data, int connfd);
 
 int get_date(char *date);
 int strends(char* a, char* b);
-int get_content_type(char *path, char *extensiontype);
+int get_content_type(char *path, char *etype);
 
 /* Variables de control */
 static volatile int endProcess = FALSE;
@@ -248,9 +249,8 @@ int get_method(char *mstr) {
 /* POST */
 /*para enviar una entidad a un recurso especificado, provocando cambios en el estado o en el servidor*/
 int process_post(http_req *data, int connfd) {
-    char buf_response[MAX_BUF], buf_date[MAX_BUF], buf_response2[MAX_BUF];
-    char date[MAX_STR], last_date[MAX_STR];
-    int err;
+    char buf_response[MAX_BUF], buf_response2[MAX_BUF];
+    char date[MAX_STR];
 
     if (!data || connfd < 0) {
         if(config_debug()) fprintf(config_debug_file(), "process > process_get > error en argumentos\n");
@@ -262,7 +262,7 @@ int process_post(http_req *data, int connfd) {
     sprintf(buf_response, "HTTP/1.%d 200 OK\r\nAllow: %s, %s, %s\r\n", data->version, GET, POST, OPTIONS);
 
     /*calcular fecha, aniadirla y poner nombre del servidor y la longitud del contenido*/
-    err = get_date(date);
+    get_date(date);
     sprintf(buf_response2, "Date: %s\r\nServer: %s\r\nContent-Length: 0\r\n\r\n", date, data->headers->name);
 
     /*unir ambas partes de la respuesta*/
@@ -275,10 +275,10 @@ int process_post(http_req *data, int connfd) {
 /* GET */
 /*obtiene un recurso del servidor*/
 int process_get(http_req *data, int connfd) {
-    char buf_response[MAX_BUF], buf_date[MAX_BUF], buf_response2[MAX_BUF];
-    char date[MAX_STR], ruta_file_petition[MAX_BUF], script_ejecucion[MAX_STR], extensiontype[MAX_STR]=NULL;
-    char *ruta, argumentos_ruta[MAX_ARGS*MAX_STR], line[MAX_STR];
-    int err, i=0, j, content_length=0;;
+    char buf_response[MAX_BUF], script_result[MAX_BUF];
+    char date[MAX_STR], ruta_file_petition[MAX_BUF], script_ejecucion[MAX_STR], etype[MAX_STR];
+    char *ruta, argumentos_ruta[MAX_ARGS*MAX_STR], line[MAX_STR], nombreArchivo[MAX_STR];
+    int err, j, content_length=0;
     FILE *salida;
 
     if (!data || connfd < 0) {
@@ -296,8 +296,13 @@ int process_get(http_req *data, int connfd) {
     if (!strstr(data->path, "?")) { /*si tiene "?" significa que hay parametros*/
         /*ruta_file_petition = ruta servidor + raiz servidor + ruta de la peticion*/
         ruta = strtok(data->path, "?");
-        sprintf(ruta_file_petition, "%s%s", config_server_root(), data->path);
-        sprintf(argumentos_ruta, " ");
+        if(!strcmp(data->path, "/")){
+            sprintf(ruta_file_petition, "%s/index.html", config_server_root());
+        }else{
+            sprintf(ruta_file_petition, "%s%s", config_server_root(), data->path);
+        }
+        sprintf(nombreArchivo, "%s", ruta_file_petition);
+        sprintf(argumentos_ruta, "");
 
 
     } else { /*si tiene parametros la peticion*/
@@ -313,7 +318,7 @@ int process_get(http_req *data, int connfd) {
         argumentos_ruta[i] = NULL;*/
 
         /*ruta_file_petition = ruta servidor + raiz servidor + ruta de la peticion*/
-        if(config_debug()) fprintf(config_debug_file(), "process > process_get > data->path '%s'\n", data->path);
+        if(config_debug()) fprintf(config_debug_file(), "process > process_get > data->path '%s', argumentos_ruta '%s'\n", data->path, argumentos_ruta);
         j=sprintf(ruta_file_petition, "%s%s ", config_server_root(), data->path);
         sprintf(&(ruta_file_petition[j]), "%s", argumentos_ruta);
     }
@@ -325,10 +330,10 @@ int process_get(http_req *data, int connfd) {
     } else if ( strends(ruta, ".php") ) {
         sprintf(script_ejecucion, "php %s", ruta_file_petition);
     } else {
-        if(config_debug()) fprintf(config_debug_file(), "process > process_get > script incorrecto '%s'\n", argumentos_ruta);
+        /*if(config_debug()) fprintf(config_debug_file(), "process > process_get > script incorrecto '%s'\n", argumentos_ruta);*/
 
-        close(connfd);
-        return -1;
+        sprintf(script_ejecucion, "cat %s", ruta_file_petition);
+
     }
     
     if(config_debug()){
@@ -348,37 +353,44 @@ int process_get(http_req *data, int connfd) {
     salida = popen(script_ejecucion, "r");
     if(!salida) {
         if(config_debug()) fprintf(config_debug_file(), "process > process_get > ejecucion incorrecta script\n");
+        /*TODO: Mensaje de error*/
         close(connfd);
         return -1;
 
     }else if(config_debug()) {
         fprintf(config_debug_file(), "process > process_get > script START\n");
-        while (fgets(line, MAX_STR, salida) != NULL)
-            fprintf(config_debug_file(), "%s\n", line);
+        j = fread(script_result, sizeof(char), MAX_BUF, salida);
+        script_result[j] = '\0';
+        /*fprintf(config_debug_file(), "%s\n", script_result);*/
         fprintf(config_debug_file(), "process > process_get > script END\n");
     }
     pclose(salida);
 
 
     /*calcular content_lenght para asignarlo despues a la respuesta*/
-    
+    content_length = strlen(script_result);
 
     /*mostrar version HTTP y decir que procesa opciones*/
-    sprintf(buf_response, "HTTP/1.%d 200 OK\r\n", data->version);
+    j = sprintf(buf_response, "HTTP/1.%d 200 OK\r\n", data->version);
 
     /*calcular fecha, aniadirla y poner nombre del servidor y la longitud del contenido*/
     err = get_date(date);
-    sprintf(buf_response2, "Date: %s\r\nServer: %s\r\nContent-Length: %d\r\n\r\n", date, config_server_signature(), content_length);
-
-    /*unir ambas partes de la respuesta*/
-    strcat(buf_response, buf_response2);
+    j += sprintf(&(buf_response[j]), "Date: %s\r\nServer: %s\r\nContent-Length: %d\r\n\r\n", date, config_server_signature(), content_length);
 
     /*obtener el tipo de contenido en el archivo*/
-    err = get_content_type(ruta, extensiontype);
-    if (err < 0) {
+    err = get_content_type(nombreArchivo, etype);
+    if (err) {
         if(config_debug()) fprintf(config_debug_file(), "process > process_get_content_type\n");
-        return -1;
     }
+
+    /* Tipo de contenido */
+    j += sprintf(&(buf_response[j]), "Content-Type: %s\r\n", etype);
+
+
+    /* Adjuntar el resultado del script/archivo */
+    j += sprintf(&(buf_response[j]), "%s", script_result);
+
+    if(config_debug()) fprintf(config_debug_file(), "process > process_get > response:\n%s\n", buf_response);
 
     /*enviar el file descriptor del cliente a dicho cliente, escribiendo directamente en el descriptor de fichero*/
     err = write(connfd, buf_response, strlen(buf_response));
@@ -395,7 +407,7 @@ int process_get(http_req *data, int connfd) {
 /* OPTIONS */
 /*para describir las opciones de comunicacion del recurso destino*/
 int process_options(http_req *data, int connfd) {
-    char buf_response[MAX_BUF], buf_date[MAX_BUF], buf_response2[MAX_BUF];
+    char buf_response[MAX_BUF], buf_response2[MAX_BUF];
     char date[MAX_STR];
     int err;
 
@@ -458,21 +470,22 @@ int strends(char* a, char* b){
 }
 
 /*para obtener el tipo de contenido que tiene*/
-int get_content_type(char *path, char *extensiontype){
-    int i=0, err;
+int get_content_type(char *path, char *etype){
+    int i=0, found=0;
 
     /* recorre toda la estructura que contiene todos los tipos con el while */
     /* se para cuando identifica uno de ellos o cuando llega al final*/
-    while(strcmp(ext_plus_ctype[i].extension, "-1") != 0) {
-        if (strstr(path, ext_plus_ctype[i].extension)) {
-            strcpy(extensiontype, ext_plus_ctype[i].content_type);
+    while(strcmp(extension_type[i].extension, "-1") && !found) {
+        if (strends(path, extension_type[i].extension)) {
+            strcpy(etype, extension_type[i].content_type);
+            found = 1;
         }
         i++;
     }
 
-    err=strcmp(extensiontype, "-1");
-    if(err!=0) {
-        if(config_debug()) fprintf(config_debug_file(), "process > process_get_content_type no identifica bien el tipo");
+    if(!found) {
+        if(config_debug()) fprintf(config_debug_file(), "process > process_get_content_type > tipo no soportado '%s'\n", path);
+        sprintf(etype, "%s", "text/plain");
         return -1;
     }
 
