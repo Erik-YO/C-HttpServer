@@ -47,7 +47,7 @@ int process_post(http_req *data, int connfd);
 int process_options(http_req *data, int connfd);
 
 
-void get_date(char* str);
+char get_date();
 
 /* Variables de control */
 static volatile int endProcess = FALSE;
@@ -236,7 +236,7 @@ int process_get(http_req *data, int connfd) {
     sprintf(buf_response, "HTTP/1.%d 200 OK\r\nAllow: %s, %s, %s\r\n", data->version, GET, POST, OPTIONS);
 
     /*calcular fecha, aniadirla y poner nombre del servidor y la longitud del contenido*/
-    get_date(date);
+    strcpy(date, get_date());
     sprintf(buf_response2, "Date: %s\r\nServer: %s\r\nContent-Length: 0\r\n\r\n", date, data->headers->name);
 
     /*unir ambas partes de la respuesta*/
@@ -250,7 +250,8 @@ int process_get(http_req *data, int connfd) {
 /*para enviar una entidad a un recurso especificado, provocando cambios en el estado o en el servidor*/
 int process_post(http_req *data, int connfd) {
     char buf_response[MAX_BUF], buf_date[MAX_BUF], buf_response2[MAX_BUF];
-    char date[MAX_STR];
+    char date[MAX_STR], ruta_file_petition[MAX_BUF], script_ejecucion[MAX_STR];
+    char *ruta, *argumentos_ruta;
     int err;
     FILE *salida;
 
@@ -260,24 +261,49 @@ int process_post(http_req *data, int connfd) {
         return -1;
     }
 
-    /*identificar el tipo de script*/
-    if (strstr(data->path, ".py")) {
-        sprintf(buf_response, "Python path : %s", data->path);
-    } else if (strstr(data->path, ".php")) {
-        sprintf(buf_response, "Php path : %s", data->path);
-    } else {
-        if(config_debug()) fprintf(config_debug_file(), "process > process_post > script incorrecto\n");
+    /*1. se ejecuta el fichero
+    2. se guardar lo ejecutado en otro fichero
+    3. se lee lo guardado
+    4. se manda lo guardado*/
 
-        close(connfd);
-        return 0;
-    }
-
-    /*si tiene parametros la peticion*/
+    /*si no tiene parametros la peticion*/
     if (!strstr(data->path, "?")) { /*si tiene "?" significa que hay parametros*/
+        /*ruta_file_petition = ruta servidor + raiz servidor + ruta de la peticion*/
+        sprintf(ruta_file_petition, "%s", data->path);
 
-    } else { /*si no tiene parametros la peticion*/
+    } else { /*si tiene parametros la peticion*/
+        ruta = strtok(data->path, "?");
+        strcpy(ruta_file_petition, ruta); 
+        /*capturar los argumentos*/
+        while( ruta != NULL) {
+            argumentos_ruta = strtok(NULL, s);
+        }
+
+        /*ruta_file_petition = ruta servidor + raiz servidor + ruta de la peticion*/
+        sprintf(ruta_file_petition, "%s %s", data->path, ruta_file_petition);
+        
+        /*Ejecucion del string con los argumentos anadidos*/
+        /*identificar el tipo de script*/
+        if ( strstr(data->path, ".py") ) {
+            sprintf(script_ejecucion, "python3 %s", data->path);
+        } else if ( strstr(data->path, ".php") ) {
+            sprintf(script_ejecucion, "php %s", data->path);
+        } else {
+            if(config_debug()) fprintf(config_debug_file(), "process > process_post > script incorrecto\n");
+
+            close(connfd);
+            return -1;
+        }
+
+        salida = popen(script_ejecucion, "r");
+        if(!salida) {
+            if(config_debug()) fprintf(config_debug_file(), "process > process_post > ejecucion incorrecta script\n");
+            close(connfd);
+            return -1;
+        }
     }
 
+    pclose(salida);
     close(connfd);
     return 0;
 }
@@ -299,7 +325,7 @@ int process_options(http_req *data, int connfd) {
     sprintf(buf_response, "HTTP/1.%d 200 OK\r\nAllow: %s, %s, %s\r\n", data->version, GET, POST, OPTIONS);
 
     /*calcular fecha, aniadirla y poner nombre del servidor y la longitud del contenido*/
-    get_date(date);
+    strcpy(date, get_date());
     sprintf(buf_response2, "Date: %s\r\nServer: %s\r\nContent-Length: 0\r\n\r\n", date, config_server_signature());
 
     /*unir ambas partes de la respuesta*/
@@ -320,8 +346,17 @@ int process_options(http_req *data, int connfd) {
 
 
 /* Privadas */
-void get_date(char* str){
-    if(!str) return;
-    sprintf(str, "<Fecha>");
+char get_date(){
+    time_t t;
+    struct tm *time_now;
+    char date[MAX_STR];
+
+    t=time(NULL);
+    time_now=localtime(&t);
+
+    /*construir el string de la fecha*/
+    strftime(date, MAX_STR, "%a %d-%b-%Y %H:%M:%S GMT %z", time_now);
+    
+    return date;
 }
 
