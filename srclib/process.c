@@ -18,6 +18,8 @@
 #define MAX_STR 90
 #define METHOD_STR_LEN 10
 #define MAX_HEADERS 100
+#define MAX_ARGS 50
+#define PATH_STR_LEN 100
 
 /* almacena toda la informacion de una peticion http */
 typedef struct {
@@ -31,7 +33,7 @@ typedef struct {
     char method[METHOD_STR_LEN];
     int method_len;
     /*Ruta*/
-    const char *path;
+    const char path[PATH_STR_LEN];
     int path_len;
     /* Http version = 1.<version> */
     int version;
@@ -47,7 +49,9 @@ int process_post(http_req *data, int connfd);
 int process_options(http_req *data, int connfd);
 
 
-char get_date();
+
+int get_date(char *date);
+int strends(char* a, char* b);
 
 /* Variables de control */
 static volatile int endProcess = FALSE;
@@ -77,15 +81,17 @@ int process_endProcess() { return endProcess; }
 int process_parse_request(http_req *data, char *buf, int len) {
     int err, i;
     size_t prevbuflen = 0, numHead=MAX_HEADERS;
-    const char* method;
+    const char *method, *path;
 
     if(!data || !buf) return -4;
     
     /* picohttpparser */
-    err = phr_parse_request(buf, len, &(method), (size_t *)&(data->method_len), &(data->path), (size_t *)&(data->path_len),
+    err = phr_parse_request(buf, len, &(method), (size_t *)&(data->method_len), &(path), (size_t *)&(data->path_len),
                             &(data->version), (data->headers), &(numHead), prevbuflen);
 
     sprintf(data->method, "%.*s", data->method_len, method);
+    sprintf(data->path, "%.*s", data->path_len, path);
+
     /* Numero de cabeceras maximo */
     data->numHeaders = (int) numHead;
     data->total_len = err;
@@ -219,9 +225,9 @@ int get_method(char *mstr) {
 }
 
 /* Funciones de los verbos soportados */
-/* GET */
-/*obtiene un recurso del servidor*/
-int process_get(http_req *data, int connfd) {
+/* POST */
+/*para enviar una entidad a un recurso especificado, provocando cambios en el estado o en el servidor*/
+int process_post(http_req *data, int connfd) {
     char buf_response[MAX_BUF], buf_date[MAX_BUF], buf_response2[MAX_BUF];
     char date[MAX_STR], last_date[MAX_STR];
     int err;
@@ -236,7 +242,7 @@ int process_get(http_req *data, int connfd) {
     sprintf(buf_response, "HTTP/1.%d 200 OK\r\nAllow: %s, %s, %s\r\n", data->version, GET, POST, OPTIONS);
 
     /*calcular fecha, aniadirla y poner nombre del servidor y la longitud del contenido*/
-    strcpy(date, get_date());
+    err = get_date(date);
     sprintf(buf_response2, "Date: %s\r\nServer: %s\r\nContent-Length: 0\r\n\r\n", date, data->headers->name);
 
     /*unir ambas partes de la respuesta*/
@@ -246,17 +252,17 @@ int process_get(http_req *data, int connfd) {
     return 0;
 }
 
-/* POST */
-/*para enviar una entidad a un recurso especificado, provocando cambios en el estado o en el servidor*/
-int process_post(http_req *data, int connfd) {
+/* GET */
+/*obtiene un recurso del servidor*/
+int process_get(http_req *data, int connfd) {
     char buf_response[MAX_BUF], buf_date[MAX_BUF], buf_response2[MAX_BUF];
     char date[MAX_STR], ruta_file_petition[MAX_BUF], script_ejecucion[MAX_STR];
-    char *ruta, *argumentos_ruta;
-    int err;
+    char *ruta, argumentos_ruta[MAX_ARGS*MAX_STR], line[MAX_STR];
+    int err, i=0, j;
     FILE *salida;
 
     if (!data || connfd < 0) {
-        if(config_debug()) fprintf(config_debug_file(), "process > process_options > error en argumentos\n");
+        if(config_debug()) fprintf(config_debug_file(), "process > process_get > error en argumentos\n");
         close(connfd);
         return -1;
     }
@@ -269,41 +275,70 @@ int process_post(http_req *data, int connfd) {
     /*si no tiene parametros la peticion*/
     if (!strstr(data->path, "?")) { /*si tiene "?" significa que hay parametros*/
         /*ruta_file_petition = ruta servidor + raiz servidor + ruta de la peticion*/
-        sprintf(ruta_file_petition, "%s", data->path);
+        ruta = strtok(data->path, "?");
+        sprintf(ruta_file_petition, "%s%s", config_server_root(), data->path);
+        sprintf(argumentos_ruta, " ");
+
 
     } else { /*si tiene parametros la peticion*/
         ruta = strtok(data->path, "?");
-        strcpy(ruta_file_petition, ruta); 
+        sprintf(argumentos_ruta, "%s", &(data->path[strlen(ruta)+1])); /*TODO: solo pilla 1 argumento*/
         /*capturar los argumentos*/
-        while( ruta != NULL) {
-            argumentos_ruta = strtok(NULL, s);
+        /*while( ruta != NULL) {
+            argumentos_ruta[i] = ruta;
+            ruta = strtok(NULL, "=");
+            ruta = strtok(NULL, "&");
+            i++;
         }
+        argumentos_ruta[i] = NULL;*/
 
         /*ruta_file_petition = ruta servidor + raiz servidor + ruta de la peticion*/
-        sprintf(ruta_file_petition, "%s %s", data->path, ruta_file_petition);
+        if(config_debug()) fprintf(config_debug_file(), "process > process_get > data->path '%s'\n", data->path);
+        j=sprintf(ruta_file_petition, "%s%s ", config_server_root(), data->path);
+        sprintf(&(ruta_file_petition[j]), "%s", argumentos_ruta);
+    }
         
-        /*Ejecucion del string con los argumentos anadidos*/
-        /*identificar el tipo de script*/
-        if ( strstr(data->path, ".py") ) {
-            sprintf(script_ejecucion, "python3 %s", data->path);
-        } else if ( strstr(data->path, ".php") ) {
-            sprintf(script_ejecucion, "php %s", data->path);
-        } else {
-            if(config_debug()) fprintf(config_debug_file(), "process > process_post > script incorrecto\n");
+    /*Ejecucion del string con los argumentos anadidos*/
+    /*identificar el tipo de script*/
+    if ( strends(ruta, ".py") ) {
+        sprintf(script_ejecucion, "python3 %s", ruta_file_petition);
+    } else if ( strends(ruta, ".php") ) {
+        sprintf(script_ejecucion, "php %s", ruta_file_petition);
+    } else {
+        if(config_debug()) fprintf(config_debug_file(), "process > process_get > script incorrecto '%s'\n", argumentos_ruta);
 
-            close(connfd);
-            return -1;
-        }
+        close(connfd);
+        return -1;
+    }
+    
+    if(config_debug()){
+        fprintf(config_debug_file(), "process > process_get > pwd START\n");
 
-        salida = popen(script_ejecucion, "r");
-        if(!salida) {
-            if(config_debug()) fprintf(config_debug_file(), "process > process_post > ejecucion incorrecta script\n");
-            close(connfd);
-            return -1;
+        salida = popen("pwd", "r");
+        if(salida) {
+            while (fgets(line, MAX_STR, salida) != NULL)
+                fprintf(config_debug_file(), "%s\n", line);
+            pclose(salida);
         }
+        fprintf(config_debug_file(), "process > process_get > pwd END\n");
     }
 
+
+    if(config_debug()) fprintf(config_debug_file(), "process > process_get > script '%s'\n", script_ejecucion);
+    salida = popen(script_ejecucion, "r");
+    if(!salida) {
+        if(config_debug()) fprintf(config_debug_file(), "process > process_get > ejecucion incorrecta script\n");
+        close(connfd);
+        return -1;
+
+    }else if(config_debug()) {
+        fprintf(config_debug_file(), "process > process_get > script START\n");
+        while (fgets(line, MAX_STR, salida) != NULL)
+            fprintf(config_debug_file(), "%s\n", line);
+        fprintf(config_debug_file(), "process > process_get > script END\n");
+    }
     pclose(salida);
+
     close(connfd);
     return 0;
 }
@@ -325,7 +360,7 @@ int process_options(http_req *data, int connfd) {
     sprintf(buf_response, "HTTP/1.%d 200 OK\r\nAllow: %s, %s, %s\r\n", data->version, GET, POST, OPTIONS);
 
     /*calcular fecha, aniadirla y poner nombre del servidor y la longitud del contenido*/
-    strcpy(date, get_date());
+    err = get_date(date);
     sprintf(buf_response2, "Date: %s\r\nServer: %s\r\nContent-Length: 0\r\n\r\n", date, config_server_signature());
 
     /*unir ambas partes de la respuesta*/
@@ -346,10 +381,9 @@ int process_options(http_req *data, int connfd) {
 
 
 /* Privadas */
-char get_date(){
+int get_date(char *date){
     time_t t;
     struct tm *time_now;
-    char date[MAX_STR];
 
     t=time(NULL);
     time_now=localtime(&t);
@@ -357,6 +391,20 @@ char get_date(){
     /*construir el string de la fecha*/
     strftime(date, MAX_STR, "%a %d-%b-%Y %H:%M:%S GMT %z", time_now);
     
-    return date;
+    return 0;
+}
+
+/*Si a termina con b*/
+int strends(char* a, char* b){
+    char *s;
+    if(!a || !b) return FALSE;
+
+    s = strrchr(a, b[0]);  /* Se busca el ultimo punto */
+
+    if(s != NULL){
+        return !strcmp(s, b);
+    }
+
+    return FALSE;
 }
 
