@@ -276,9 +276,9 @@ int process_post(http_req *data, int connfd) {
 /*obtiene un recurso del servidor*/
 int process_get(http_req *data, int connfd) {
     char buf_response[MAX_BUF], buf_date[MAX_BUF], buf_response2[MAX_BUF];
-    char date[MAX_STR], ruta_file_petition[MAX_BUF], script_ejecucion[MAX_STR];
+    char date[MAX_STR], ruta_file_petition[MAX_BUF], script_ejecucion[MAX_STR], extensiontype[MAX_STR]=NULL;
     char *ruta, argumentos_ruta[MAX_ARGS*MAX_STR], line[MAX_STR];
-    int err, i=0, j;
+    int err, i=0, j, content_length=0;;
     FILE *salida;
 
     if (!data || connfd < 0) {
@@ -359,7 +359,36 @@ int process_get(http_req *data, int connfd) {
     }
     pclose(salida);
 
+
+    /*calcular content_lenght para asignarlo despues a la respuesta*/
+    
+
+    /*mostrar version HTTP y decir que procesa opciones*/
+    sprintf(buf_response, "HTTP/1.%d 200 OK\r\n", data->version);
+
+    /*calcular fecha, aniadirla y poner nombre del servidor y la longitud del contenido*/
+    err = get_date(date);
+    sprintf(buf_response2, "Date: %s\r\nServer: %s\r\nContent-Length: %d\r\n\r\n", date, config_server_signature(), content_length);
+
+    /*unir ambas partes de la respuesta*/
+    strcat(buf_response, buf_response2);
+
+    /*obtener el tipo de contenido en el archivo*/
+    err = get_content_type(ruta, extensiontype);
+    if (err < 0) {
+        if(config_debug()) fprintf(config_debug_file(), "process > process_get_content_type\n");
+        return -1;
+    }
+
+    /*enviar el file descriptor del cliente a dicho cliente, escribiendo directamente en el descriptor de fichero*/
+    err = write(connfd, buf_response, strlen(buf_response));
+    if (err < 0) {
+        if(config_debug()) fprintf(config_debug_file(), "process > process_options > no se puede responder al cliente\n");
+        return -1;
+    }
+
     close(connfd);
+
     return 0;
 }
 
