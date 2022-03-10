@@ -1,8 +1,8 @@
 
 #include <arpa/inet.h> /*Para inet_ntop*/
 #include <stdio.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "config.h"
 #include "process.h"
@@ -10,6 +10,7 @@
 #include "types.h"
 #define MAX 8000
 #define SA struct sockaddr
+#define MAX_STR 50
 
 #define HELP_TEXT \
     "\
@@ -22,7 +23,9 @@
 int main(int argc, char const *argv[]) {
     int sockfd, connfd, err;
     struct sockaddr_in servaddr;
-    char ip[50] = "\0";
+    char ip[MAX_STR] = "\0";
+    char auxstr[MAX_STR];
+    FILE *f = NULL;
 
     /* Inicializar el manejador de senales para los hilos */
     process_setSignalHandler();
@@ -61,6 +64,17 @@ int main(int argc, char const *argv[]) {
         fprintf(config_debug_file(), "server > main > Server IP = %s\n", ip);
     }
 
+    /* Imprime el directorio actual */
+    if (config_debug()) {
+        fprintf(config_debug_file(), "server > pwd (current working directory) > '");
+        f = popen("pwd", "r");
+        if (f) {
+            while (fgets(auxstr, MAX_STR, f) != NULL) fprintf(config_debug_file(), "%s", auxstr);
+            pclose(f);
+        }
+        fprintf(config_debug_file(), "'\n");
+    }
+
     while (!process_endProcess()) {
         /* Accept the data packet from client and verification */
         connfd = tcp_accept(sockfd);
@@ -83,7 +97,7 @@ int main(int argc, char const *argv[]) {
                 fprintf(config_debug_file(), "##############################\n");
                 fprintf(config_debug_file(), "//                         //\n");
                 fprintf(config_debug_file(), "//  Peticion -> Connfd = %d //\n", connfd);
-                fprintf(config_debug_file(), "//                         //\n");
+                fprintf(config_debug_file(), "//  entrante               //\n");
                 fprintf(config_debug_file(), "##############################\n");
             }
 
