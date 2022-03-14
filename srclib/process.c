@@ -26,6 +26,12 @@
 #define PATH_STR_LEN 100
 #define MAX_CMD_LEN 300
 
+/* Interpretes y extensiones */
+#define PYTHON_INT "python3"
+#define PHP_INT "php"
+#define PYTHON_EXT ".py"
+#define PHP_EXT ".php"
+
 /* almacena toda la informacion de una peticion http */
 typedef struct {
     /*Cabeceras*/
@@ -42,11 +48,14 @@ typedef struct {
     /* Http version = 1.<version> */
     int version;
 
-    /*Longitud total en Bytes de request*/
+    /*Longitud total en Bytes de request (sin contenido)*/
     int total_len;
 
     /*keep-alive*/
     int keep_alive;
+
+    /*longitud total del contenido de la peticion*/
+    long content_len;
 
 } http_req;
 
@@ -89,7 +98,7 @@ struct {
 int process_parse_request(http_req *data, char *buf, int len);
 int get_method_code(char *mstr);
 int process_get(http_req *data, int connfd);
-int process_post(http_req *data, int connfd);
+int process_post(http_req *data, int connfd, const char *contenido);
 int process_options(http_req *data, int connfd);
 
 int send_http_error_response(int connfd, int errorCode);
@@ -102,7 +111,7 @@ long get_file_size(FILE *f);
 int get_ruta_completa(char *path, char *ruta);
 int get_argumentos(char *path, char *args);
 
-FILE *get_recurso(int connfd, char *ruta, int execute, char *extraArgs);
+FILE *get_recurso(int connfd, char *ruta, int execute);
 int send_recurso(int connfd, int version, char *method, char *content_type, FILE *contentf);
 
 /* Variables de control */
@@ -145,12 +154,18 @@ int process_parse_request(http_req *data, char *buf, int len) {
     if (sizeof(buf) == len) return -3;
 
     /* Guardar valores en data */
+    data->content_len = 0;
     data->numHeaders = (int)numHead;                            /* Numero de cabeceras */
     sprintf(data->method, "%.*s", (int)mlen, method);           /* metodo */
     sprintf(data->path, "%.*s", (int)plen, path);               /* ruta */
     for (i = 0; i < data->numHeaders && i < MAX_HEADERS; i++) { /* cabeceras */
         sprintf(data->headers[i], "%.*s", (int)headers[i].name_len, headers[i].name);
         sprintf(data->headerVal[i], "%.*s", (int)headers[i].value_len, headers[i].value);
+
+        if(!strcmp("Content-Length", data->headers[i])){
+            data->content_len = strtol(data->headerVal[i], NULL, 10);
+        }
+
     }
     data->total_len = err; /* Longitud total de la peticion (bytes consumidos por phr_parse_request) */
     data->keep_alive = FALSE;
@@ -240,7 +255,7 @@ void process_request(int connfd) {
                     err = process_get(&data, connfd);
                     break;
                 case METHOD_POST:
-                    err = process_post(&data, connfd);
+                    err = process_post(&data, connfd, buf + data.total_len);
                     break;
                 case METHOD_OPTIONS:
                     err = process_options(&data, connfd);
@@ -314,16 +329,16 @@ int process_get(http_req *data, int connfd) {
     if (config_debug()) fprintf(config_debug_file(), "process > process_get > argumentos '%s', err = %d\n", argumentos, err);
 
     /* Identificar el tipo de script (si es un scrip a ejecutar) y ejecutar (o leer)*/
-    if (strends(ruta_recurso, ".py")) { /* Python */
-        sprintf(script_ejecucion, "python3 %s %s", ruta_recurso, argumentos);
-        salida = get_recurso(connfd, script_ejecucion, TRUE, NULL);
+    if (strends(ruta_recurso, PYTHON_EXT)) { /* Python */
+        sprintf(script_ejecucion, "%s %s %s", PYTHON_INT, ruta_recurso, argumentos);
+        salida = get_recurso(connfd, script_ejecucion, TRUE);
 
-    } else if (strends(ruta_recurso, ".php")) { /* Php */
-        sprintf(script_ejecucion, "php %s %s", ruta_recurso, argumentos);
-        salida = get_recurso(connfd, script_ejecucion, TRUE, NULL);
+    } else if (strends(ruta_recurso, PHP_EXT)) { /* Php */
+        sprintf(script_ejecucion, "%s %s %s", PHP_INT, ruta_recurso, argumentos);
+        salida = get_recurso(connfd, script_ejecucion, TRUE);
 
     } else { /* Recurso a leer */
-        salida = get_recurso(connfd, ruta_recurso, FALSE, NULL);
+        salida = get_recurso(connfd, ruta_recurso, FALSE);
     }
 
     /* Suponemos que ya se han enviado los mensajes correspondientes de error al cliente*/
@@ -344,28 +359,91 @@ int process_get(http_req *data, int connfd) {
 
 /* POST */
 /*para enviar una entidad a un recurso especificado, provocando cambios en el estado o en el servidor*/
-int process_post(http_req *data, int connfd) {
-    char buf_response[MAX_BUF], buf_response2[MAX_BUF];
-    char date[MAX_STR];
+int process_post(http_req *data, int connfd, const char *contenido) {
+    char ruta_recurso[PATH_STR_LEN + MAX_STR], etype[MAX_STR];
+    char argumentos[MAX_ARGS], script_ejecucion[MAX_CMD_LEN], content[MAX_CONTENT];
+    int err = 0, i=0, j=0;
+    FILE *salida = NULL;
 
     if (!data || connfd < 0) {
         if (config_debug()) fprintf(config_debug_file(), "process > process_get > error en argumentos\n");
-        close(connfd);
         return -1;
     }
 
-    /*mostrar version HTTP y decir que procesa opciones*/
-    sprintf(buf_response, "HTTP/1.%d 200 OK\r\nAllow: %s, %s, %s\r\n", data->version, GET, POST, OPTIONS);
+    /* Obtenemos la ruta del recurso */
+    err = get_ruta_completa(data->path, ruta_recurso);
+    if (config_debug()) fprintf(config_debug_file(), "process > process_get > ruta de recurso '%s', err = %d\n", ruta_recurso, err);
 
-    /*calcular fecha, aniadirla y poner nombre del servidor y la longitud del contenido*/
-    get_datetime(date);
-    sprintf(buf_response2, "Date: %s\r\nServer: %s\r\nContent-Length: 0\r\n\r\n", date, config_server_signature());
+    if (access(ruta_recurso, F_OK) != 0) {              /* Comprobamos que el recurso exista en la ruta */
+        send_http_error_response(connfd, SC_NOT_FOUND); /* Mensaje de error (no encontrado) */
+        if (config_debug()) fprintf(config_debug_file(), "process > process_get > recurso NO EXISTE '%s'\n", ruta_recurso);
+        return -2;
+    }
+    if (access(ruta_recurso, R_OK) != 0) {              /* Comprobamos que se tengan permisos de lectura */
+        send_http_error_response(connfd, SC_FORBIDDEN); /* Mensaje de error (acceso denegado) */
+        if (config_debug()) fprintf(config_debug_file(), "process > process_get > recurso sin permiso de lectura '%s'\n", ruta_recurso);
+        return -3;
+    }
 
-    /*unir ambas partes de la respuesta*/
-    strcat(buf_response, buf_response2);
+    /* Obtenemos argumentos (separados por espacios) si los tiene */
+    err = get_argumentos(data->path, argumentos);
+    if (config_debug()) fprintf(config_debug_file(), "process > process_get > argumentos '%s', err = %d\n", argumentos, err);
 
-    close(connfd);
-    return 0;
+    /* Obtenemos el contenido (sus argumentos) */
+    while(contenido[i] != '=' && i<data->content_len) i++; /* nombre de la primera variable */
+    while(i<data->content_len){
+        if(contenido[i] == '='){ /* inicio nuevo argumento*/
+            if(j){ /* no se incluye salto de linea si es el primero */
+                content[j] = '\n';
+                j++;
+            }
+        }else if(contenido[i] == '&'){
+            while(contenido[i] != '=' && i<data->content_len) i++; /* nombre de variable */
+            i--;
+        }else{
+            content[j] = contenido[i];
+            j++;
+        }
+        i++;
+    }
+    content[j] = (char)0; /* fin del contenido */
+
+
+    /* Identificar el tipo de script (si es un scrip a ejecutar) y ejecutar (o leer)*/
+    if (strends(ruta_recurso, PYTHON_EXT)) { /* Python */
+        if(data->content_len>0){/* con argumentos por stdin */
+            sprintf(script_ejecucion, "echo \"%s\" | %s %s %s", content, PYTHON_INT, ruta_recurso, argumentos);
+        }else{ /* sin argumentos */
+            sprintf(script_ejecucion, "%s %s %s", PYTHON_INT, ruta_recurso, argumentos);
+        }
+        salida = get_recurso(connfd, script_ejecucion, TRUE);
+
+    } else if (strends(ruta_recurso, PHP_EXT)) { /* Php */
+        if(data->content_len>0){/* con argumentos por stdin */
+            sprintf(script_ejecucion, "echo \"%s\" | %s %s %s", content, PHP_INT, ruta_recurso, argumentos);
+        }else{
+            sprintf(script_ejecucion, "%s %s %s", PHP_INT, ruta_recurso, argumentos);
+        }
+        salida = get_recurso(connfd, script_ejecucion, TRUE);
+
+    } else { /* Recurso a leer */
+        salida = get_recurso(connfd, ruta_recurso, FALSE); /* No se tiene en cuenta el contenido */
+    }
+
+    /* Suponemos que ya se han enviado los mensajes correspondientes de error al cliente*/
+    if (!salida) {
+        return -4;
+    }
+
+    get_content_type(ruta_recurso, etype); /* Obtenemos el Content-type */
+
+    /* Enviamos la respuesta */
+    err = send_recurso(connfd, data->version, GET, etype, salida);
+
+    /* Cerramos el fichero de contenido */
+    fclose(salida);
+
+    return err;
 }
 
 /* OPTIONS */
@@ -623,7 +701,7 @@ long get_file_size(FILE *f) {
 
 /* extraArgs = argumentos separados por '\n' */
 /* TODO: modificar para que acepte los argumentos extraArgs por la entrada estandar */
-FILE *get_recurso(int connfd, char *ruta, int execute, char *extraArgs) {
+FILE *get_recurso(int connfd, char *ruta, int execute) {
     FILE *salida = NULL, *exeoutput = NULL;
     char auxBytes[MAX_STR];
     int err, j;
@@ -650,6 +728,7 @@ FILE *get_recurso(int connfd, char *ruta, int execute, char *extraArgs) {
             send_http_error_response(connfd, SC_INTERNAL_SERVER_ERROR); /* Envio de mensaje de error */
             return NULL;
         }
+
         j = 0;
         do { /* Pasamos todo el resultado de la ejecucion a un fichero temporal */
             err = fread(auxBytes, sizeof(char), MAX_STR, exeoutput);
