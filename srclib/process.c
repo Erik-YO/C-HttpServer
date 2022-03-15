@@ -32,6 +32,10 @@
 #define PYTHON_EXT ".py"
 #define PHP_EXT ".php"
 
+/* Recurso por defecto */
+#define DEFAULT_RESOURCE "index.html"
+
+
 /* almacena toda la informacion de una peticion http */
 typedef struct {
     /*Cabeceras*/
@@ -95,24 +99,132 @@ struct {
 
 /* Definitions */
 
+/*
+ * FUNCION: int process_parse_request(http_req *data, char *buf, int len)
+ * ARGS_IN: http_req* - estructura en la que se guardan los datos de la peticion 
+ *          char* - buffer con el texto de la peticion
+ *          int - tamano del texto de la peticion
+ * DESCRIPCION: procesa una peticion y guarda los campos en en la estructura data
+ * ARGS_OUT: int - resultado: 0 con ejecucion correcta, < 0 en caso contrario
+ */
 int process_parse_request(http_req *data, char *buf, int len);
+
+/*
+ * FUNCION: int get_method_code(char *mstr)
+ * ARGS_IN: char* - cadena con el nombre del metodo 
+ * DESCRIPCION: obtiene el codigo del metodo asociado al nombre del metodo
+ * ARGS_OUT: int - resultado: codigo del metodo (definido en una macro)
+ */
 int get_method_code(char *mstr);
+
+/*
+ * FUNCION: int process_get(http_req *data, int connfd)
+ * ARGS_IN: http_req* - estructura con los datos de la peticion GET
+ *          int - descriptor del socket por el que mandar la respuesta 
+ * DESCRIPCION: procesa una peticion GET
+ * ARGS_OUT: int - resultado: 0 con ejecucion correcta, < 0 en caso contrario
+ */
 int process_get(http_req *data, int connfd);
+
+/*
+ * FUNCION: int process_post(http_req *data, int connfd, const char *contenido)
+ * ARGS_IN: http_req* - estructura con los datos de la peticion POST
+ *          int - descriptor del socket por el que mandar la respuesta
+ *          const char* - contenido de la peticion POST 
+ * DESCRIPCION: procesa una peticion POST
+ * ARGS_OUT: int - resultado: 0 con ejecucion correcta, < 0 en caso contrario
+ */
 int process_post(http_req *data, int connfd, const char *contenido);
+
+/*
+ * FUNCION: int process_options(http_req *data, int connfd)
+ * ARGS_IN: http_req* - estructura con los datos de la peticion OPTIONS
+ *          int - descriptor del socket por el que mandar la respuesta
+ * DESCRIPCION: procesa una peticion OPTIONS
+ * ARGS_OUT: int - resultado: 0 con ejecucion correcta, < 0 en caso contrario
+ */
 int process_options(http_req *data, int connfd);
 
+/*
+ * FUNCION: int send_http_error_response(int connfd, int errorCode)
+ * ARGS_IN: int - descriptor del socket por el que mandar la respuesta
+ *          int - codigo de error
+ * DESCRIPCION: envia una respuesta de error
+ * ARGS_OUT: int - resultado: 0 con ejecucion correcta, < 0 en caso contrario
+ */
 int send_http_error_response(int connfd, int errorCode);
 
+/*
+ * FUNCION: int get_datetime(char *date)
+ * ARGS_IN: char* - puntero a char donde se guardara la fecha
+ * DESCRIPCION: guarda la fecha actual formateada en una cadena
+ * ARGS_OUT: int - resultado: 0 con ejecucion correcta, < 0 en caso contrario
+ */
 int get_datetime(char *date);
+
+/*
+ * FUNCION: int strends(char *a, char *b)
+ * ARGS_IN: char* - primera cadena
+ *          char* - segunda cadena
+ * DESCRIPCION: comprueba si el final de la primera cadena es la segunda
+ * ARGS_OUT: int - resultado: 1 en caso afirmativo, 0 en otro caso
+ */
 int strends(char *a, char *b);
+
+/*
+ * FUNCION: void get_content_type(char *path, char *etype)
+ * ARGS_IN: char* - direccion del fichero
+ *          char* - cadena donde se guardara el tipo de media (html, text, imagen, pdf)
+ * DESCRIPCION: obtiene el tipo de contenido segun la extension del archivo (segun la estructura "extension_type")
+ */
 void get_content_type(char *path, char *etype);
+
+/*
+ * FUNCION: long get_file_size(FILE *f)
+ * ARGS_IN: FILE* - fichero
+ * DESCRIPCION: obtinene el tamano total del fichero
+ * ARGS_OUT: long - resultado: tamano del fichero en Bytes, 0 en caso de error
+ */
 long get_file_size(FILE *f);
 
+/*
+ * FUNCION: int get_ruta_completa(char *path, char *ruta)
+ * ARGS_IN: char* - ruta relativa al recurso (desde el directorio del servidor)
+ *          char* - output de la ruta completa al recurso
+ * DESCRIPCION: obtiene la ruta completa del recurso
+ * ARGS_OUT: int - resultado: resultado: 0 con ejecucion correcta, < 0 en caso contrario
+ */
 int get_ruta_completa(char *path, char *ruta);
+
+/*
+ * FUNCION: int get_ruta_completa(char *path, char *ruta)
+ * ARGS_IN: char* - ruta relativa al recurso (desde el directorio del servidor)
+ *          char* - output de la ruta completa al recurso
+ * DESCRIPCION: obtiene la ruta completa del recurso
+ * ARGS_OUT: int - resultado: resultado: 0 con ejecucion correcta, < 0 en caso contrario
+ */
 int get_argumentos(char *path, char *args);
 
+/*
+ * FUNCION: FILE *get_recurso(int connfd, char *ruta, int execute)
+ * ARGS_IN: int - descriptor del socket por el que mandar la respuesta
+ *          char* - ruta del recurso a obtener o comando a ejecutar
+ *          int - flag que decide ejecutar o no un comando (0 obtener fichero, 1 ejecutar comando)
+ * DESCRIPCION: obtiene el recurso pedido en un fichero
+ * ARGS_OUT: FILE* - resultado: resultado: puntero al fichero en el que se ha escrito el resultado
+ */
 FILE *get_recurso(int connfd, char *ruta, int execute);
-int send_recurso(int connfd, int version, char *method, char *content_type, FILE *contentf);
+
+/*
+ * FUNCION: int send_recurso(int connfd, int version, char *method, char *content_type, FILE *contentf)
+ * ARGS_IN: int - descriptor del socket por el que mandar la respuesta
+ *          int - version de http
+ *          char* - tipo de contenido a enviar
+ *          FILE* - puntero del fichero que contiene el 
+ * DESCRIPCION: obtiene el recurso pedido en un fichero y lo envia por el socket
+ * ARGS_OUT: int - resultado: resultado: 0 con ejecucion correcta, < 0 en caso contrario
+ */
+int send_recurso(int connfd, int version, char *content_type, FILE *contentf);
 
 /* Variables de control */
 static volatile int endProcess = FALSE;
@@ -349,7 +461,7 @@ int process_get(http_req *data, int connfd) {
     get_content_type(ruta_recurso, etype); /* Obtenemos el Content-type */
 
     /* Enviamos la respuesta */
-    err = send_recurso(connfd, data->version, GET, etype, salida);
+    err = send_recurso(connfd, data->version, etype, salida);
 
     /* Cerramos el fichero de contenido */
     fclose(salida);
@@ -438,7 +550,7 @@ int process_post(http_req *data, int connfd, const char *contenido) {
     get_content_type(ruta_recurso, etype); /* Obtenemos el Content-type */
 
     /* Enviamos la respuesta */
-    err = send_recurso(connfd, data->version, GET, etype, salida);
+    err = send_recurso(connfd, data->version, etype, salida);
 
     /* Cerramos el fichero de contenido */
     fclose(salida);
@@ -457,7 +569,7 @@ int process_options(http_req *data, int connfd) {
         return -1;
     }
 
-    err = send_recurso(connfd, data->version, OPTIONS, NULL, NULL);
+    err = send_recurso(connfd, data->version, NULL, NULL);
     if (err < 0) {
         if (config_debug()) fprintf(config_debug_file(), "process > process_options > error en send_recurso\n");
         return -2;
@@ -485,6 +597,9 @@ int get_method_code(char *mstr) {
 int get_datetime(char *date) {
     time_t t;
     struct tm *time_now;
+
+    if(!date) return -1;
+    date[0] = (char)0;
 
     t = time(NULL);
     time_now = localtime(&t);
@@ -626,10 +741,11 @@ int send_http_error_response(int connfd, int errorCode) {
 
 /* Del campo path se obtiene la ruta completa al recurso */
 int get_ruta_completa(char *path, char *ruta) {
-    int l, i = 0, rootLen;
+    int l=0, i = 0, rootLen=0;
 
     if (!path || !ruta) return -1;
 
+    ruta[0] = (char)0;
     l = strlen(path);
     rootLen = sprintf(ruta, "%s", config_server_root());
 
@@ -646,7 +762,7 @@ int get_ruta_completa(char *path, char *ruta) {
 
     /* Si la ruta es "/" se obtiene el recurso por defecto: index.html */
     if (ruta[strlen(ruta) - 1] == '/') {
-        sprintf(&(ruta[strlen(ruta)]), "index.html");
+        sprintf(&(ruta[strlen(ruta)]), DEFAULT_RESOURCE);
     }
 
     return 0;
@@ -754,7 +870,7 @@ FILE *get_recurso(int connfd, char *ruta, int execute) {
 }
 
 /* Crea la respuesta para cualquiera de los metodos implementados (GET, OPTIONS y OPTIONS) dependiendo de los argumentos */
-int send_recurso(int connfd, int version, char *method, char *content_type, FILE *contentf) {
+int send_recurso(int connfd, int version, char *content_type, FILE *contentf) {
     char response[MAX_STR], date[MAX_STR], auxBytes[MAX_STR];
     long content_len;
     int err = 0, j;
@@ -765,9 +881,6 @@ int send_recurso(int connfd, int version, char *method, char *content_type, FILE
         if (config_debug()) fprintf(config_debug_file(), "process > send_recurso > error en get_datetime\n");
     } else if (content_len < 0) {
         if (config_debug()) fprintf(config_debug_file(), "process > send_recurso > error en get_file_size\n");
-        err = -5;
-    } else if (!method) {
-        if (config_debug()) fprintf(config_debug_file(), "process > send_recurso > method = NULL\n");
         err = -5;
     }
     if (err) {
