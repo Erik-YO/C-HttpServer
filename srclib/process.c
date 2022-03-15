@@ -35,6 +35,10 @@
 /* Recurso por defecto */
 #define DEFAULT_RESOURCE "index.html"
 
+/* Codigos arbitrarios */
+#define METHOD_GET 9224
+#define METHOD_POST 9326
+#define METHOD_OPTIONS 9556
 
 /* almacena toda la informacion de una peticion http */
 typedef struct {
@@ -192,7 +196,7 @@ long get_file_size(FILE *f);
  * ARGS_IN: char* - ruta relativa al recurso (desde el directorio del servidor)
  *          char* - output de la ruta completa al recurso
  * DESCRIPCION: obtiene la ruta completa del recurso
- * ARGS_OUT: int - resultado: resultado: 0 con ejecucion correcta, < 0 en caso contrario
+ * ARGS_OUT: int - resultado: 0 con ejecucion correcta, < 0 en caso contrario
  */
 int get_ruta_completa(char *path, char *ruta);
 
@@ -201,7 +205,7 @@ int get_ruta_completa(char *path, char *ruta);
  * ARGS_IN: char* - ruta relativa al recurso (desde el directorio del servidor)
  *          char* - output de la ruta completa al recurso
  * DESCRIPCION: obtiene la ruta completa del recurso
- * ARGS_OUT: int - resultado: resultado: 0 con ejecucion correcta, < 0 en caso contrario
+ * ARGS_OUT: int - resultado: 0 con ejecucion correcta, < 0 en caso contrario
  */
 int get_argumentos(char *path, char *args);
 
@@ -211,7 +215,7 @@ int get_argumentos(char *path, char *args);
  *          char* - ruta del recurso a obtener o comando a ejecutar
  *          int - flag que decide ejecutar o no un comando (0 obtener fichero, 1 ejecutar comando)
  * DESCRIPCION: obtiene el recurso pedido en un fichero
- * ARGS_OUT: FILE* - resultado: resultado: puntero al fichero en el que se ha escrito el resultado
+ * ARGS_OUT: FILE* - resultado: puntero al fichero en el que se ha escrito el resultado
  */
 FILE *get_recurso(int connfd, char *ruta, int execute);
 
@@ -222,7 +226,7 @@ FILE *get_recurso(int connfd, char *ruta, int execute);
  *          char* - tipo de contenido a enviar
  *          FILE* - puntero del fichero que contiene el 
  * DESCRIPCION: obtiene el recurso pedido en un fichero y lo envia por el socket
- * ARGS_OUT: int - resultado: resultado: 0 con ejecucion correcta, < 0 en caso contrario
+ * ARGS_OUT: int - resultado: 0 con ejecucion correcta, < 0 en caso contrario
  */
 int send_recurso(int connfd, int version, char *content_type, FILE *contentf);
 
