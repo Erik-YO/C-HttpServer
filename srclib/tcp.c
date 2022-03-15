@@ -14,9 +14,15 @@
 #include "config.h"
 #include "types.h"
 
-/**/
+/* Private definitions */
 in_addr_t inet_addr(const char *cp);
 
+/*
+ * FUNCION: buffer_reset(void *buff, int size)
+ * ARGS_IN: void* - buffer que queremos resertear
+ *          int - tamanio del buffer
+ * DESCRIPCION: Resetea completamente el buffer
+ */
 void buffer_reset(void *buff, int size) {
     int i;
     char *buffer = buff;
@@ -25,7 +31,10 @@ void buffer_reset(void *buff, int size) {
     }
 }
 
+/* Public functions */
+
 /*
+
  Returns the file descriptor of the socket where it is listening
 */
 int tcp_listen() {
