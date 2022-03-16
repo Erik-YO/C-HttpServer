@@ -7,6 +7,7 @@
 #include "config.h"
 #include "process.h"
 #include "tcp.h"
+#include "hilos.h"
 #include "types.h"
 #define MAX 8000
 #define SA struct sockaddr
@@ -21,11 +22,12 @@
 
 /*/ Driver function/*/
 int main(int argc, char const *argv[]) {
-    int sockfd, connfd, err;
+    int sockfd, connfd, err, count_hilos=0;
     struct sockaddr_in servaddr;
     char ip[MAX_STR] = "\0";
     char auxstr[MAX_STR];
     FILE *f = NULL;
+    GestorHilos* gh=NULL;
 
     /* Inicializar el manejador de senales para los hilos */
     process_setSignalHandler();
@@ -47,6 +49,13 @@ int main(int argc, char const *argv[]) {
             /* Del fichero de configuracion */
             config_printHelp(stdout);
         }
+    }
+
+    gh = hilo_getGestor(config_default_max_threads);
+    if(!gh) {
+        if (config_debug()) fprintf(config_debug_file(), "server main > hilo_getGestor error\n");
+        config_close_debug_file();
+        return 10;
     }
 
     /* Se abre el socket para empezar a aceptar conexiones */
@@ -101,11 +110,27 @@ int main(int argc, char const *argv[]) {
                 fprintf(config_debug_file(), "##############################\n");
             }
 
-            /* Llamada a la funcion principal de proceso de peticiones */
-            process_request(connfd);
+            /*habria que considerar qué hilos están libres*/
+            if(count_hilos > config_default_max_threads) {
+                fprintf(config_debug_file(), "Ya no hay suficientes hilos\n");
+
+            }
+
+            /*process_request es la funcion principal de proceso de peticiones*/
+            err = hilo_launch(gh, process_request, (void*)connfd);
+            if(err != 0) {
+                fprintf(config_debug_file(), "server main > hilo_launch error\n");
+                hilo_destroyGestor(gh);
+            }
+
+            count_hilos++;
         }
     }
 
+    err = hilo_destroyGestor(gh);
+    if(err != 0) { /*si no se ha destruido, se fuerza a que lo haga*/
+        hilo_forceDestroyGestor(gh);
+    }
     /* Cierre del socket y el fichero de debug */
     close(sockfd);
     config_close_debug_file();
