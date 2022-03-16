@@ -44,16 +44,59 @@ typedef struct _HiloLauncher {
 
 /*Solo se permite tener un Gestor de Hilos activo*/
 GestorHilos* globalGestor = NULL;
+
 /*Para el timeout*/
 int alarmed = 0;
 
+
+/* Private definitions */
+
+
+/*
+ * FUNCION: int sem_timedwait(sem_t* __restrict__ __sem, const struct timespec* __restrict__ __abstime)
+ * ARGS_IN: sem_t* - semaforo al que se le quiere poner restriccion de tiempo
+ *          const struct timespec* - puntero a una estructura que especifica el tiempo de bloqueo del semaforo en segundos y nanosegundos
+ * DESCRIPCION: Es una funcion de la biblioteca de <semaphore.h>. Bloquea un semaforo concreto por una cantidad concreta de tiempo
+ * ARGS_OUT: int - 0 en caso de exito, sino es error (como que haya pasado el tiempo de timeout sin que se 
+ *           haya liberado ningun espacio de hilo) con cualquier otro numero
+ */
 int sem_timedwait(sem_t* __restrict__ __sem, const struct timespec* __restrict__ __abstime);
 
+
+/*
+ * FUNCION: void hilo_freeGestor(GestorHilos* gh)
+ * ARGS_IN: GestorHilos* - gestor de hilos
+ * DESCRIPCION: Liberar la memoria del gestor de hilos
+ */
 void hilo_freeGestor(GestorHilos* gh);
+
+/*
+ * FUNCION: void* _postLaunchHilo(void* launcher)
+ * ARGS_IN: void* - launcher/lanzador de hilo 
+ * DESCRIPCION: Es la funcion hilo que se pasa junto a sus argumentos en la funcion pthread_create
+ *              basicamente completa la estructura para la creacion del hilo
+ */
 void* _postLaunchHilo(void* launcher);
+
+/*
+ * FUNCION: void* _clean_hilo(void* arg)
+ * ARGS_IN: void* - argumento para crear un HiloLauncher dentro de la funcion
+ * DESCRIPCION: Limpia el hilo, liberando sus recursos
+ */
 void _clean_hilo(void* arg);
 
+/*
+ * FUNCION: void _post_available(GestorHilos* g)
+ * ARGS_IN: GestorHilos* - gestor de hilos
+ * DESCRIPCION: Hace sem_post a los semaforos disponibles
+ */
 void _post_available(GestorHilos* g);
+
+/*
+ * FUNCION: void _wait_available(GestorHilos* g)
+ * ARGS_IN: GestorHilos* - gestor de hilos
+ * DESCRIPCION: Hace sem_wait a los semaforos disponibles
+ */
 void _wait_available(GestorHilos* g);
 
 /*Funciones de gestion*/
