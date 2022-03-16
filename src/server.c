@@ -22,7 +22,7 @@
 
 /*/ Driver function/*/
 int main(int argc, char const *argv[]) {
-    int sockfd, connfd, err, count_hilos=0, max_hilos;
+    int sockfd, connfd, err, max_hilos;
     struct sockaddr_in servaddr;
     char ip[MAX_STR] = "\0";
     char auxstr[MAX_STR];
@@ -113,19 +113,19 @@ int main(int argc, char const *argv[]) {
             }
 
             /*habria que considerar qué hilos están libres*/
-            if(count_hilos > max_hilos) {
-                fprintf(config_debug_file(), "Ya no hay suficientes hilos\n");
+            if((max_hilos - hilo_getActive(gh))<1 ) {
+                fprintf(config_debug_file(), "Ya no ningun hilo libre\n");
+                hilo_destroyGestor(gh);
+                break;
 
             }
 
             /*process_request es la funcion principal de proceso de peticiones*/
-            err = hilo_launch(gh, (funcionHilo)process_request, (void*)connfd);
+            err = hilo_launch(gh, (funcionHilo)process_request, &connfd); /*con el casting (void*)connfd da warning*/
             if(err != 0) {
                 fprintf(config_debug_file(), "server main > hilo_launch error\n");
                 hilo_destroyGestor(gh);
             }
-
-            count_hilos++;
         }
     }
 
