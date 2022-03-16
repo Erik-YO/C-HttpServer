@@ -425,47 +425,53 @@ int process_get(http_req *data, int connfd) {
         return -1;
     }
 
-    /* Obtenemos la ruta del recurso */
-    err = get_ruta_completa(data->path, ruta_recurso);
-    if (config_debug()) fprintf(config_debug_file(), "process > process_get > ruta de recurso '%s', err = %d\n", ruta_recurso, err);
+    if (!endProcess) {
+        /* Obtenemos la ruta del recurso */
+        err = get_ruta_completa(data->path, ruta_recurso);
+        if (config_debug()) fprintf(config_debug_file(), "process > process_get > ruta de recurso '%s', err = %d\n", ruta_recurso, err);
 
-    if (access(ruta_recurso, F_OK) != 0) {              /* Comprobamos que el recurso exista en la ruta */
-        send_http_error_response(connfd, SC_NOT_FOUND); /* Mensaje de error (no encontrado) */
-        if (config_debug()) fprintf(config_debug_file(), "process > process_get > recurso NO EXISTE '%s'\n", ruta_recurso);
-        return -2;
-    }
-    if (access(ruta_recurso, R_OK) != 0) {              /* Comprobamos que se tengan permisos de lectura */
-        send_http_error_response(connfd, SC_FORBIDDEN); /* Mensaje de error (acceso denegado) */
-        if (config_debug()) fprintf(config_debug_file(), "process > process_get > recurso sin permiso de lectura '%s'\n", ruta_recurso);
-        return -3;
-    }
-
-    /* Obtenemos argumentos (separados por espacios) si los tiene */
-    err = get_argumentos(data->path, argumentos);
-    if (config_debug()) fprintf(config_debug_file(), "process > process_get > argumentos '%s', err = %d\n", argumentos, err);
-
-    /* Identificar el tipo de script (si es un scrip a ejecutar) y ejecutar (o leer)*/
-    if (strends(ruta_recurso, PYTHON_EXT)) { /* Python */
-        sprintf(script_ejecucion, "%s %s %s", PYTHON_INT, ruta_recurso, argumentos);
-        salida = get_recurso(connfd, script_ejecucion, TRUE);
-
-    } else if (strends(ruta_recurso, PHP_EXT)) { /* Php */
-        sprintf(script_ejecucion, "%s %s %s", PHP_INT, ruta_recurso, argumentos);
-        salida = get_recurso(connfd, script_ejecucion, TRUE);
-
-    } else { /* Recurso a leer */
-        salida = get_recurso(connfd, ruta_recurso, FALSE);
+        if (access(ruta_recurso, F_OK) != 0) {              /* Comprobamos que el recurso exista en la ruta */
+            send_http_error_response(connfd, SC_NOT_FOUND); /* Mensaje de error (no encontrado) */
+            if (config_debug()) fprintf(config_debug_file(), "process > process_get > recurso NO EXISTE '%s'\n", ruta_recurso);
+            return -2;
+        }
+        if (access(ruta_recurso, R_OK) != 0) {              /* Comprobamos que se tengan permisos de lectura */
+            send_http_error_response(connfd, SC_FORBIDDEN); /* Mensaje de error (acceso denegado) */
+            if (config_debug()) fprintf(config_debug_file(), "process > process_get > recurso sin permiso de lectura '%s'\n", ruta_recurso);
+            return -3;
+        }
     }
 
-    /* Suponemos que ya se han enviado los mensajes correspondientes de error al cliente*/
-    if (!salida) {
-        return -4;
+    if (!endProcess) {
+        /* Obtenemos argumentos (separados por espacios) si los tiene */
+        err = get_argumentos(data->path, argumentos);
+        if (config_debug()) fprintf(config_debug_file(), "process > process_get > argumentos '%s', err = %d\n", argumentos, err);
+
+        /* Identificar el tipo de script (si es un scrip a ejecutar) y ejecutar (o leer)*/
+        if (strends(ruta_recurso, PYTHON_EXT)) { /* Python */
+            sprintf(script_ejecucion, "%s %s %s", PYTHON_INT, ruta_recurso, argumentos);
+            salida = get_recurso(connfd, script_ejecucion, TRUE);
+
+        } else if (strends(ruta_recurso, PHP_EXT)) { /* Php */
+            sprintf(script_ejecucion, "%s %s %s", PHP_INT, ruta_recurso, argumentos);
+            salida = get_recurso(connfd, script_ejecucion, TRUE);
+
+        } else { /* Recurso a leer */
+            salida = get_recurso(connfd, ruta_recurso, FALSE);
+        }
+
+        /* Suponemos que ya se han enviado los mensajes correspondientes de error al cliente*/
+        if (!salida) {
+            return -4;
+        }
     }
 
-    get_content_type(ruta_recurso, etype); /* Obtenemos el Content-type */
+    if (!endProcess) {
+        get_content_type(ruta_recurso, etype); /* Obtenemos el Content-type */
 
-    /* Enviamos la respuesta */
-    err = send_recurso(connfd, data->version, etype, salida);
+        /* Enviamos la respuesta */
+        err = send_recurso(connfd, data->version, etype, salida);
+    }
 
     /* Cerramos el fichero de contenido */
     fclose(salida);
@@ -486,68 +492,75 @@ int process_post(http_req *data, int connfd, const char *contenido) {
         return -1;
     }
 
-    /* Obtenemos la ruta del recurso */
-    err = get_ruta_completa(data->path, ruta_recurso);
-    if (config_debug()) fprintf(config_debug_file(), "process > process_get > ruta de recurso '%s', err = %d\n", ruta_recurso, err);
+    if (!endProcess) {
+        /* Obtenemos la ruta del recurso */
+        err = get_ruta_completa(data->path, ruta_recurso);
+        if (config_debug()) fprintf(config_debug_file(), "process > process_get > ruta de recurso '%s', err = %d\n", ruta_recurso, err);
 
-    if (access(ruta_recurso, F_OK) != 0) {              /* Comprobamos que el recurso exista en la ruta */
-        send_http_error_response(connfd, SC_NOT_FOUND); /* Mensaje de error (no encontrado) */
-        if (config_debug()) fprintf(config_debug_file(), "process > process_get > recurso NO EXISTE '%s'\n", ruta_recurso);
-        return -2;
-    }
-    if (access(ruta_recurso, R_OK) != 0) {              /* Comprobamos que se tengan permisos de lectura */
-        send_http_error_response(connfd, SC_FORBIDDEN); /* Mensaje de error (acceso denegado) */
-        if (config_debug()) fprintf(config_debug_file(), "process > process_get > recurso sin permiso de lectura '%s'\n", ruta_recurso);
-        return -3;
-    }
-
-    /* Obtenemos argumentos (separados por espacios) si los tiene */
-    err = get_argumentos(data->path, argumentos);
-    if (config_debug()) fprintf(config_debug_file(), "process > process_get > argumentos '%s', err = %d\n", argumentos, err);
-
-    /* Obtenemos el contenido (sus argumentos) */
-    while(i<data->content_len){
-        if(contenido[i] == '&'){
-            content[j] = ' ';
-        }else{
-            content[j] = contenido[i];
+        if (access(ruta_recurso, F_OK) != 0) {              /* Comprobamos que el recurso exista en la ruta */
+            send_http_error_response(connfd, SC_NOT_FOUND); /* Mensaje de error (no encontrado) */
+            if (config_debug()) fprintf(config_debug_file(), "process > process_get > recurso NO EXISTE '%s'\n", ruta_recurso);
+            return -2;
         }
-        j++;
-        i++;
-    }
-    content[j] = (char)0; /* fin del contenido */
-
-
-    /* Identificar el tipo de script (si es un scrip a ejecutar) y ejecutar (o leer)*/
-    if (strends(ruta_recurso, PYTHON_EXT)) { /* Python */
-        if(data->content_len>0){/* con argumentos por stdin */
-            sprintf(script_ejecucion, "echo \"%s\" | %s %s %s", content, PYTHON_INT, ruta_recurso, argumentos);
-        }else{ /* sin argumentos */
-            sprintf(script_ejecucion, "%s %s %s", PYTHON_INT, ruta_recurso, argumentos);
+        if (access(ruta_recurso, R_OK) != 0) {              /* Comprobamos que se tengan permisos de lectura */
+            send_http_error_response(connfd, SC_FORBIDDEN); /* Mensaje de error (acceso denegado) */
+            if (config_debug()) fprintf(config_debug_file(), "process > process_get > recurso sin permiso de lectura '%s'\n", ruta_recurso);
+            return -3;
         }
-        salida = get_recurso(connfd, script_ejecucion, TRUE);
+    }
 
-    } else if (strends(ruta_recurso, PHP_EXT)) { /* Php */
-        if(data->content_len>0){/* con argumentos por stdin */
-            sprintf(script_ejecucion, "echo \"%s\" | %s %s %s", content, PHP_INT, ruta_recurso, argumentos);
-        }else{
-            sprintf(script_ejecucion, "%s %s %s", PHP_INT, ruta_recurso, argumentos);
+    if (!endProcess) {
+        /* Obtenemos argumentos (separados por espacios) si los tiene */
+        err = get_argumentos(data->path, argumentos);
+        if (config_debug()) fprintf(config_debug_file(), "process > process_get > argumentos '%s', err = %d\n", argumentos, err);
+
+        /* Obtenemos el contenido (sus argumentos) */
+        while(i<data->content_len){
+            if(contenido[i] == '&'){
+                content[j] = ' ';
+            }else{
+                content[j] = contenido[i];
+            }
+            j++;
+            i++;
         }
-        salida = get_recurso(connfd, script_ejecucion, TRUE);
-
-    } else { /* Recurso a leer */
-        salida = get_recurso(connfd, ruta_recurso, FALSE); /* No se tiene en cuenta el contenido */
+        content[j] = (char)0; /* fin del contenido */
     }
 
-    /* Suponemos que ya se han enviado los mensajes correspondientes de error al cliente*/
-    if (!salida) {
-        return -4;
+        if (!endProcess) {
+        /* Identificar el tipo de script (si es un scrip a ejecutar) y ejecutar (o leer)*/
+        if (strends(ruta_recurso, PYTHON_EXT)) { /* Python */
+            if(data->content_len>0){/* con argumentos por stdin */
+                sprintf(script_ejecucion, "echo \"%s\" | %s %s %s", content, PYTHON_INT, ruta_recurso, argumentos);
+            }else{ /* sin argumentos */
+                sprintf(script_ejecucion, "%s %s %s", PYTHON_INT, ruta_recurso, argumentos);
+            }
+            salida = get_recurso(connfd, script_ejecucion, TRUE);
+
+        } else if (strends(ruta_recurso, PHP_EXT)) { /* Php */
+            if(data->content_len>0){/* con argumentos por stdin */
+                sprintf(script_ejecucion, "echo \"%s\" | %s %s %s", content, PHP_INT, ruta_recurso, argumentos);
+            }else{
+                sprintf(script_ejecucion, "%s %s %s", PHP_INT, ruta_recurso, argumentos);
+            }
+            salida = get_recurso(connfd, script_ejecucion, TRUE);
+
+        } else { /* Recurso a leer */
+            salida = get_recurso(connfd, ruta_recurso, FALSE); /* No se tiene en cuenta el contenido */
+        }
+
+        /* Suponemos que ya se han enviado los mensajes correspondientes de error al cliente*/
+        if (!salida) {
+            return -4;
+        }
     }
 
-    get_content_type(ruta_recurso, etype); /* Obtenemos el Content-type */
+    if (!endProcess) {
+        get_content_type(ruta_recurso, etype); /* Obtenemos el Content-type */
 
-    /* Enviamos la respuesta */
-    err = send_recurso(connfd, data->version, etype, salida);
+        /* Enviamos la respuesta */
+        err = send_recurso(connfd, data->version, etype, salida);
+    }
 
     /* Cerramos el fichero de contenido */
     fclose(salida);
@@ -566,10 +579,12 @@ int process_options(http_req *data, int connfd) {
         return -1;
     }
 
-    err = send_recurso(connfd, data->version, NULL, NULL);
-    if (err < 0) {
-        if (config_debug()) fprintf(config_debug_file(), "process > process_options > error en send_recurso\n");
-        return -2;
+    if (!endProcess) {
+        err = send_recurso(connfd, data->version, NULL, NULL);
+        if (err < 0) {
+            if (config_debug()) fprintf(config_debug_file(), "process > process_options > error en send_recurso\n");
+            return -2;
+        }
     }
 
     close(connfd);
