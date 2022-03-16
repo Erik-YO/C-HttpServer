@@ -22,7 +22,7 @@
 #define METHOD_STR_LEN 10
 #define MAX_HEADERS 100
 /* Maxima longitud de argumentos */
-#define MAX_ARGS 100
+#define MAX_ARGS 120
 #define PATH_STR_LEN 100
 #define MAX_CMD_LEN 300
 
@@ -39,6 +39,9 @@
 #define METHOD_GET 9224
 #define METHOD_POST 9326
 #define METHOD_OPTIONS 9556
+
+/* El tiempoque sera valida la conexion keep-alive en milisegundos */
+#define KEEP_ALIVE_MS 2000
 
 /* almacena toda la informacion de una peticion http */
 typedef struct {
@@ -317,10 +320,17 @@ void process_request(int connfd) {
     char buf[MAX_BUF];
     int n = 0, err = 0, verbo = 0;
     http_req data;
+    struct timeval timevar;
+    long milisecondsend=0, milisecondsnow=0;
+
     buf[0] = (char)0;
 
     if (connfd < 0) return;
 
+    /* Miliegundos para keep-alive */
+    gettimeofday(&timevar, NULL);
+    milisecondsend = (timevar.tv_sec*1000) + (timevar.tv_usec/1000) + KEEP_ALIVE_MS;
+    
     signal(SIGPIPE, SIG_IGN); /* Ignoramos las senales de broken pipe, pues haremos la comprobacion manualmente */
 
     do {
@@ -393,8 +403,12 @@ void process_request(int connfd) {
          * END PROCESSING
          */
 
+        /* Tiempo para keep-alive */
+        gettimeofday(&timevar, NULL);
+        milisecondsnow = (timevar.tv_sec*1000) + (timevar.tv_usec/1000);
+    
         /* Suponemos que si err != 0, ya se ha enviado el mensaje de error correspondiente desde la funcion process_<method>() */
-    } while (data.keep_alive && !endProcess && !err && FALSE); /*DEBUG*/
+    } while (data.keep_alive && !endProcess && !err && milisecondsnow<milisecondsend);
 
     /* Respuesta estandar de servidor en mantenimiento (apagandose) */
     if (endProcess) {
