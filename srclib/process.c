@@ -506,20 +506,13 @@ int process_post(http_req *data, int connfd, const char *contenido) {
     if (config_debug()) fprintf(config_debug_file(), "process > process_get > argumentos '%s', err = %d\n", argumentos, err);
 
     /* Obtenemos el contenido (sus argumentos) */
-    while(contenido[i] != '=' && i<data->content_len) i++; /* nombre de la primera variable */
     while(i<data->content_len){
-        if(contenido[i] == '='){ /* inicio nuevo argumento*/
-            if(j){ /* no se incluye salto de linea si es el primero */
-                content[j] = '\n';
-                j++;
-            }
-        }else if(contenido[i] == '&'){
-            while(contenido[i] != '=' && i<data->content_len) i++; /* nombre de variable */
-            i--;
+        if(contenido[i] == '&'){
+            content[j] = ' ';
         }else{
             content[j] = contenido[i];
-            j++;
         }
+        j++;
         i++;
     }
     content[j] = (char)0; /* fin del contenido */
@@ -785,21 +778,17 @@ int get_argumentos(char *path, char *args) {
     i++;
     /* Obtenemos los parametros separados por espacios */
     while (i < l) {
-        while (i < l && path[i] != '=') {
-            i++;
+
+        if(path[i] == '&'){
+            args[j] = ' ';
+        }else{
+            args[j] = path[i];
         }
         i++;
-        while (i < l && path[i] != '&') {
-            args[j] = path[i];
-            /*sprintf(args, "%s", &(path[i]));*/
-            j++;
-            i++;
-        }
-        args[j] = ' ';
         j++;
     }
     if (j) {
-        args[j - 1] = (char)0;
+        args[j] = (char)0;
     }
 
     return 0;
