@@ -56,16 +56,42 @@ void hilo_forceDestroyGestor(GestorHilos* gh);
 /*Funciones de hilos*/
 
 
-/*Launch hilo*/
+/*
+ * FUNCION: int hilo_launch(GestorHilos* gh, funcionHilo fh, void* arg)
+ * ARGS_IN: GestorHilos* - gestor de hilos 
+ *          funcionHilo - funcion que ejecutara el hilo
+ *          void* - argumento de la funcion hilo
+ * DESCRIPCION: Realiza el launch/lanzamiento de un hilo nuevo en el sistema multihilo
+ * ARGS_OUT: int - devuelve 0 en caso de exito, pero si es 0>1 significa error
+ */
 int hilo_launch(GestorHilos* gh, funcionHilo fh, void* arg);
 
-/*Launch hilo con timeout si no se consigue espacio para otro hilo en ese tiempo*/
+/*
+ * FUNCION: int hilo_lauchTimeOut(GestorHilos* gh, double timeout, funcionHilo fh, void* arg);
+ * ARGS_IN: GestorHilos* - gestor de hilos 
+ *          double - tiempo 
+ *          funcionHilo - funcion que ejecutara el hilo
+ *          void* - argumento de la funcion hilo
+ * DESCRIPCION: Realiza el launch/lanzamiento de un hilo nuevo en el sistema multihilo, pero
+ *              esta vez con timeout si no se consigue espacio para otro hilo en ese tiempo
+ * ARGS_OUT: int - devuelve 0 en saco de exito, 1 en caso de error
+ */
 int hilo_lauchTimeOut(GestorHilos* gh, double timeout, funcionHilo fh, void* arg);
 
-/*Get active hilos*/
+/*
+ * FUNCION: int hilo_getActive(GestorHilos* gh)
+ * ARGS_IN: GestorHilos* - gestor de hilos 
+ * DESCRIPCION: Obtiene el numero de hilos activos
+ * ARGS_OUT: int - devuelve el numero de hilos activos o -1 en caso de error
+ */
 int hilo_getActive(GestorHilos* gh);
 
-/*Get max hilos*/
+/*
+ * FUNCION: int hilo_launch(GestorHilos* gh, funcionHilo fh, void* arg)
+ * ARGS_IN: GestorHilos* - gestor de hilos 
+ * DESCRIPCION: Obtiene el numero maximo de hilos que se pueden crear
+ * ARGS_OUT: int - devuelve el numero maximo de hilos que se pueden crear
+ */
 int hilo_getMax(GestorHilos* gh);
 
 
