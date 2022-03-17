@@ -14,6 +14,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "config.h"
 #include "types.h"
 
 /* Estructura de gestion de hilos */
@@ -48,20 +49,17 @@ GestorHilos* globalGestor = NULL;
 /*Para el timeout*/
 int alarmed = 0;
 
-
 /* Private definitions */
-
 
 /*
  * FUNCION: int sem_timedwait(sem_t* __restrict__ __sem, const struct timespec* __restrict__ __abstime)
  * ARGS_IN: sem_t* - semaforo al que se le quiere poner restriccion de tiempo
  *          const struct timespec* - puntero a una estructura que especifica el tiempo de bloqueo del semaforo en segundos y nanosegundos
  * DESCRIPCION: Es una funcion de la biblioteca de <semaphore.h>. Bloquea un semaforo concreto por una cantidad concreta de tiempo
- * ARGS_OUT: int - 0 en caso de exito, sino es error (como que haya pasado el tiempo de timeout sin que se 
+ * ARGS_OUT: int - 0 en caso de exito, sino es error (como que haya pasado el tiempo de timeout sin que se
  *           haya liberado ningun espacio de hilo) con cualquier otro numero
  */
 int sem_timedwait(sem_t* __restrict__ __sem, const struct timespec* __restrict__ __abstime);
-
 
 /*
  * FUNCION: void hilo_freeGestor(GestorHilos* gh)
@@ -72,7 +70,7 @@ void hilo_freeGestor(GestorHilos* gh);
 
 /*
  * FUNCION: void* _postLaunchHilo(void* launcher)
- * ARGS_IN: void* - launcher/lanzador de hilo 
+ * ARGS_IN: void* - launcher/lanzador de hilo
  * DESCRIPCION: Es la funcion hilo que se pasa junto a sus argumentos en la funcion pthread_create
  *              basicamente completa la estructura para la creacion del hilo
  */
@@ -187,25 +185,6 @@ GestorHilos* hilo_getGestor(int maxHilos) {
     return gh;
 }
 
-/*Close hilos*/
-int hilo_closeHilos(GestorHilos* gh) {
-    int i, t;
-    if (!gh) return 1;
-
-    for (i = 0; i < gh->max; i++) {
-        sem_wait(&(gh->lock));
-        t = gh->taken[i];
-        sem_post(&(gh->lock));
-
-        if (t) {
-            /*Al cancelar el hilo se llama a las funciones introducidas por pthread_cleanup_push*/
-            pthread_cancel(gh->hilos[i]);
-        }
-        gh->taken[i] = 0;
-    }
-
-    return 0;
-}
 
 /*Free gestor*/
 void hilo_freeGestor(GestorHilos* gh) {
@@ -229,25 +208,23 @@ void hilo_freeGestor(GestorHilos* gh) {
 }
 
 /*Destroy*/
-int hilo_destroyGestor(GestorHilos* gh) {
-    if (!gh) return 0;
-
-    sem_wait(&(gh->allAvailable));
-
-    hilo_freeGestor(gh);
-    return 0;
-}
-
-/*Force destroy*/
-void hilo_forceDestroyGestor(GestorHilos* gh) {
+void hilo_destroyGestor(GestorHilos* gh) {
+    int ended = 0;
     if (!gh) return;
 
-    hilo_closeHilos(gh);
+    /* Espera hasta que todos los hilos hayan terminado su ejecucion */
+    while (ended < gh->max) {
+        hilos_waitUntilAvailable(gh);
+        _post_available(gh);
+        ended++;
+    }
 
+    if(config_debug()) fprintf(config_debug_file(), "hilos > hilo_destroyGestor\n");
     hilo_freeGestor(gh);
-
     return;
 }
+
+
 
 /*Funciones de hilos*/
 
@@ -257,8 +234,10 @@ int hilo_launch(GestorHilos* gh, funcionHilo fh, void* arg) {
     int error, i, notTaken = -1;
 
     if (!gh || !fh) {
+        if(config_debug()) fprintf(config_debug_file(), "hilos > hilo_launch > gh or fh =NULL\n");
         return 1;
     }
+    if(config_debug()) fprintf(config_debug_file(), "hilos > hilo_launch\n");
 
     launcher = (HiloLauncher*)calloc(1, sizeof(HiloLauncher));
     if (!launcher) return 2;
@@ -291,6 +270,8 @@ int hilo_launch(GestorHilos* gh, funcionHilo fh, void* arg) {
         sem_post(&(gh->lock));
         return 4;
     }
+
+    if(config_debug()) fprintf(config_debug_file(), "hilos > hilo_launch > hilo creado\n");
 
     return 0;
 }
@@ -361,6 +342,14 @@ int hilo_getActive(GestorHilos* gh) {
 
 /*Get max hilos*/
 int hilo_getMax(GestorHilos* gh) { return gh->max; }
+
+/* Espera hasta que haya al menos un hilo disponible */
+int hilos_waitUntilAvailable(GestorHilos* gh) {
+    if (!gh) return -1;
+    _wait_available(gh);
+    _post_available(gh);
+    return 0;
+}
 
 void _makeAvailable(void* arg) {
     int pos = (intptr_t)arg;

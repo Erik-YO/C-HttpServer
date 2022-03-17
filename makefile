@@ -24,26 +24,10 @@ OBJECT_FILES=$(OBJ)/process.o $(OBJ)/tcp.o $(OBJ)/hilos.o $(OBJ)/picohttpparser.
 
 SERVER_LIB=libserver_lib
 
-#OBJECT_FILES=$(OBJ)/$(MAIN_SERVER).o $(OBJ)/tcp.o $(SRC)/fuente.o $(LIB)/libreria.a
 
 
 all: $(EXE)
 
-
-
-# Ejemplos de compilacion:
-#
-# src de librerias
-#$(OBJ)/xxxx.o: $(SRCLIB)/xxxx.c $(INC)/xxxx.h
-#	$(CC) $(FLAGS) -o $@ -c $(SRCLIB)/xxxx.c
-#
-#$(LIB)/xxxx.a: $(OBJ)/xxxx.o
-#	$(LIBCOMP) $(LIB_FLAGS) $(LIB)/xxxx.a $(OBJ)/xxxx.o
-#
-# src estandar
-#$(OBJ)/xxxx.o: $(SRC)/xxxx.c $(INC)/xxxx.h
-#	$(CC) $(FLAGS) -o $@ -c $(SRC)/xxxx.c
-#
 
 
 
@@ -87,7 +71,7 @@ $(OBJ)/config.o: $(SRCLIB)/config.c $(INC)/config.h
 
 
 
-## EJECUTABLES
+## Objetos de EJECUTABLES
 
 # obj de servidor
 $(OBJ)/$(MAIN_SERVER).o: $(SRC)/$(MAIN_SERVER).c
@@ -114,7 +98,7 @@ $(OBJ)/$(TEST_PROC).o: $(SRC)/$(TEST_PROC).c
 
 
 
-# Bibliotecas
+# Biblioteca
 $(LIB)/$(SERVER_LIB): $(OBJECT_FILES)
 	$(LIBCOMP) $(LIB_FLAGS) $@.a $(OBJECT_FILES)
 	ranlib $@.a
@@ -124,7 +108,7 @@ $(LIB)/$(SERVER_LIB): $(OBJECT_FILES)
 
 
 
-
+## EJECUTABLES
 
 # Main de servidor
 $(MAIN_SERVER): $(OBJ)/$(MAIN_SERVER).o $(LIB)/$(SERVER_LIB)

@@ -10,7 +10,6 @@
 #include "types.h"
 
 #define MAX 80
-#define SA struct sockaddr
 
 void bzero(void* buff, int size) {
     int i;

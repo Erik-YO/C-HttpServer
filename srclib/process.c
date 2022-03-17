@@ -9,6 +9,7 @@
 #include <strings.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -17,14 +18,15 @@
 #include "picohttpparser.h"
 #include "types.h"
 #define MAX_BUF 8000
-#define MAX_CONTENT 4000
+#define MAX_CONTENT 2000
+#define MAX_ERROR_RESP 200
 #define MAX_STR 90
 #define METHOD_STR_LEN 10
 #define MAX_HEADERS 100
 /* Maxima longitud de argumentos */
-#define MAX_ARGS 120
+#define MAX_ARGS 100
 #define PATH_STR_LEN 100
-#define MAX_CMD_LEN 300
+#define MAX_CMD_LEN 2400
 
 /* Interpretes y extensiones */
 #define PYTHON_INT "python3"
@@ -339,8 +341,11 @@ void process_request(int connfd) {
             bzero(buf, MAX_BUF);
             /* Se lee la peticion del buffer */
             n = 0;
-            while ((n += read(connfd, buf, sizeof(buf))) == -1 && errno == EINTR && !endProcess)
-                ;
+            /*while ((n += read(connfd, buf, sizeof(buf))) == -1 && errno == EINTR && !endProcess)
+                ;*/
+            n = read(connfd, buf, sizeof(buf));
+            if(config_debug()) fprintf(config_debug_file(), "\nprocess > process_request > buffer read end, n=%d\n", n);
+
 
             if (n <= 0) {
                 if (config_debug() && n < 0) fprintf(config_debug_file(), "\nprocess > process_request > buffer read error %d\n", n);
@@ -408,10 +413,11 @@ void process_request(int connfd) {
         milisecondsnow = (timevar.tv_sec*1000) + (timevar.tv_usec/1000);
     
         /* Suponemos que si err != 0, ya se ha enviado el mensaje de error correspondiente desde la funcion process_<method>() */
-    } while (data.keep_alive && !endProcess && !err && milisecondsnow<milisecondsend);
+    } while (data.keep_alive && !endProcess && !err && milisecondsnow<milisecondsend && FALSE);
 
     /* Respuesta estandar de servidor en mantenimiento (apagandose) */
     if (endProcess) {
+        if (config_debug()) fprintf(config_debug_file(), "process_request > service unavailable, servidor apagandose\n");
         send_http_error_response(connfd, SC_SERVICE_UNAVAILABLE);
     } else {
         if (config_debug()) fprintf(config_debug_file(), "process_request > conexion file descriptor closed\n");
@@ -682,7 +688,7 @@ void get_content_type(char *path, char *etype) {
 
 int send_http_error_response(int connfd, int errorCode) {
     char date[MAX_STR], errName[MAX_STR];
-    char headers[MAX_BUF], content[MAX_CONTENT];
+    char headers[MAX_BUF], content[MAX_ERROR_RESP];
     int i = 0, clen, err;
 
     if (connfd < 0 || errorCode < 100) {

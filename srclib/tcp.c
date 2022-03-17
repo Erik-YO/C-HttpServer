@@ -14,6 +14,8 @@
 #include "config.h"
 #include "types.h"
 
+#define SA struct sockaddr
+
 /* Private definitions */
 in_addr_t inet_addr(const char *cp);
 

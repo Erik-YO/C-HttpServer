@@ -18,7 +18,7 @@
 #define DEF_MAXCLIENTS 1
 #define DEF_LISTENPORT 8080
 #define DEF_MAX_THREADS 1
-#define DEF_SERVERSIGNATURE "MyServer 1.1"
+#define DEF_SERVERSIGNATURE "YusteLin 1.1"
 #define DEF_DEBUG 0
 
 
@@ -40,7 +40,7 @@ static char *CONFIG_VAR_EXPLAIN[CONFIG_NUM_VARIABLES + 1] = {
     "Port where the server will accept connections",
     "String returned on the \"ServerName\" header",
     "Maximum number of threads to process new connections",
-    "Debug messages output file. \"none\" or \"null\" for no output file. \"stderr\" or \"stdout\" for other standar outputs",
+    "Debug messages output file. \"none\" or \"null\" for no output file. \"stderr\" or \"stdout\" for other standard outputs",
     "Print debug messages. Valid values: true/1 or false/0",
     NULL};
 
