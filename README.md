@@ -2,7 +2,7 @@
 
 **Practica 1 de Redes 2022:** Servidor Web
 
-Toda documentacion sobre esta practica se encuentra en la Wiki de dicho proyecto.
+Toda documentacion sobre esta practica se encuentra en la Wiki de dicho proyecto: [enlace del wiki](https://git.eps.uam.es/redes2/2022/2311/08/practica1/-/wikis/home)
 
 
 
